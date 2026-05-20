@@ -18,11 +18,11 @@
 
 ## 📋 BTT Internal Evaluation Notes
 
-| Check | Status | Notes |
-|-------|--------|-------|
+| Check   | Status | Notes |
+|---------|--------|-------|
 | Python Compatibility | 🟢 | The project uses Python-based libraries and tools for data processing and modeling, aligning well with the student skill set. |
-| Data Readiness | 🟢 | The data is publicly available, under 1GB, and in accessible formats (CSV/TSV, JSON), which minimizes cleaning time and ensures readiness for use. |
-| Resource Check | 🟢 | The project can utilize free resources like Google Colab, and necessary API keys will be provided, ensuring access to required tools without additional cost burdens. |
+| Data Readiness  | 🟢 | The data is publicly available, under 1GB, and in accessible formats (CSV/TSV, JSON), which minimizes cleaning time and ensures readiness for use. |
+| Resource Check  | 🟢 | The project can utilize free resources like Google Colab, and necessary API keys will be provided, ensuring access to required tools without additional cost burdens. |
 
 **Student Fit Score:** 8/10  
 **Technical Depth Score:** 7/10  
