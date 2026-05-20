@@ -16,34 +16,20 @@
 >
 > ❌ Remember that this is a public repo. Do NOT include: Proprietary data, PII, API keys, credentials, or anything confidential.
 
----
----
+## 📋 BTT Internal Evaluation Notes
 
-> ## Challenge Advisor: Update & Finalize Your Project Overview
->
-> > 💡 **These grey text instructions are just for you, the team's Challenge Advisor; please delete them once you have completed the steps below.**
->
-> We've pre-populated this Challenge Project Overview page — which is what will be shared with your Break Through Tech student team in August — using the details from your submission form. In order for your project to be finalized and assigned to a team, please:
->
-> 1. **Send us your GitHub username** so we can add you as a Collaborator to this repo, which will enable you to make edits. If you don't have a username, you can create a free account [here](https://github.com/signup). Once you are ready to share your username, simply reply to the email that sent you to this repo. Once we receive your GitHub username, you will get an email inviting you to join this repo as a Collaborator and can begin making edits. 
-> 2. **Review all sections below** and update or expand any content as needed, making sure to address the SME Feedback in the section immediately below. Look for square brackets to find the places below that require additional inputs from you (e.g., "About [Company / Org Name]").
-> 3. **Add your dataset** to the [data folder](data) in this repo.
-> 4. **Close the Issue assigned to you in this repo** to let us know that you have made your edits and the overview page is ready for final review. You can do this by going to the _Issues_ tab in the top left section of the menu above, add a comment that says "CA review complete", and click the button to Close the Issue. 
->
-> If you're unfamiliar with how to edit a page like this in GitHub, check out [this tutorial](https://ubc-lib-geo.github.io/gis-workshop-waml-template/content/handson/edit-readme.html) for a quick overview (start with step 2 and only edit this page), and [this guide](https://ubc-lib-geo.github.io/gis-workshop-waml-template/content/markdown.html) on how to use Markdown to compose text. 
->
-> ---
->
-> ### 🔍 SME Feedback from the BTT Evaluation Team
->
-> *Please address the following by editing this page:*
->
-> - See advisor feedback section below for detailed technical adjustments.
-> - [Additional feedback item]
-> - [Additional feedback item]
->
-> ---
->
+| Check | Status | Notes |
+|-------|--------|-------|
+| Python Compatibility | 🟢 | The project uses Python-based libraries and tools for data processing and modeling, aligning well with the student skill set. |
+| Data Readiness | 🟢 | The data is publicly available, under 1GB, and in accessible formats (CSV/TSV, JSON), which minimizes cleaning time and ensures readiness for use. |
+| Resource Check | 🟢 | The project can utilize free resources like Google Colab, and necessary API keys will be provided, ensuring access to required tools without additional cost burdens. |
+
+**Student Fit Score:** 8/10  
+**Technical Depth Score:** 7/10  
+**Overall Recommendation:** REVISE
+
+**Advisor Feedback Draft:**
+The project demonstrates a clear understanding of how to leverage LLMs in a practical context. However, it would benefit from a more defined approach to the evaluation metrics to ensure they align well with real-world applications. Refinement in methodology for handling diverse code samples is advisable. I recommend a focus on iterating the framework based on early test results.
 
 ---
 
@@ -169,23 +155,5 @@ I'm excited to work with you!
 ## ❓ Questions?
 
 Please bring any questions to our first meeting during the week of August 24th (Break Through Tech's Bridge to Studio - Session B).
-
----
-
-## 📋 BTT Internal Evaluation Notes
-*(This section is for BTT staff only — remove before sharing with students)*
-
-| Check | Status | Notes |
-|-------|--------|-------|
-| Python Compatibility | 🟢 | The project uses Python-based libraries and tools for data processing and modeling, aligning well with the student skill set. |
-| Data Readiness | 🟢 | The data is publicly available, under 1GB, and in accessible formats (CSV/TSV, JSON), which minimizes cleaning time and ensures readiness for use. |
-| Resource Check | 🟢 | The project can utilize free resources like Google Colab, and necessary API keys will be provided, ensuring access to required tools without additional cost burdens. |
-
-**Student Fit Score:** 8/10  
-**Technical Depth Score:** 7/10  
-**Overall Recommendation:** REVISE
-
-**Advisor Feedback Draft:**
-The project demonstrates a clear understanding of leveraging LLMs in a practical context. However, it would benefit from a more defined approach to the evaluation metrics to ensure they align well with real-world applications. Refinement in methodology for handling diverse code samples is advisable. I recommend a focus on iterating the framework based on early test results.
 
 ---
