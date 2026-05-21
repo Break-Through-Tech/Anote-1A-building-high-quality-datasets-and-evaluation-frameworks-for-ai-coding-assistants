@@ -31,6 +31,7 @@
 **Advisor Feedback Draft:**
 The project demonstrates a clear understanding of how to leverage LLMs in a practical context. However, it would benefit from a more defined approach to the evaluation metrics to ensure they align well with real-world applications. Refinement in methodology for handling diverse code samples is advisable. I recommend a focus on iterating the framework based on early test results.
 
+[Detail SME Project Feedback](./SME_Feedback.md)
 ---
 
 # Building High-Quality Datasets and Evaluation Frameworks for AI Coding Assistants
