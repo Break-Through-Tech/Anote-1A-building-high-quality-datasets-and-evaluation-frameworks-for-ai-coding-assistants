@@ -112,19 +112,19 @@ Use these milestones to guide your work. Your team will create a **GitHub Projec
 The following resources will help your team understand the problem space and potential technical approaches for this project:
 
 **Background Reading:**
-- [Understanding AI in Software Development](https://example.com/article) 
-- [Exploring the Impact of LLMs on Code Generation](https://example.com/report)
+- [Link to an article or blog post about the problem domain will be provided here]
+- [Link to an industry report or case study will be provided here]
 
 **Technical Tutorials:**
-- [Introduction to LLMs and Fine-Tuning](https://example.com/tutorial)
-- [Natural Language Processing - A Beginner's Guide](https://example.com/documentation)
+- [Link to a free tutorial on the ML technique(s) involved will be provided here]
+- [Link to documentation for a key library or tool will be provided here]
 
 **Code Examples:**
-- [GitHub Repository with Relevant Code](https://github.com/example/repo)
-- [Sample Implementation of a Benchmarking Pipeline](https://example.com/sample)
+- [Link to a relevant GitHub repo will be provided here]
+- [Link to a sample implementation or starter code will be provided here]
 
 **Other:**
-- [Links to additional resources — papers, videos, podcasts, etc.]
+- [Links to any additional resources — e.g., papers, videos, podcasts, etc. will be provided here]
 
 *Feel free to explore beyond these, and share anything interesting you find with me!*
 
