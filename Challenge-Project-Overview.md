@@ -51,7 +51,7 @@ Anote is focused on enhancing developer productivity through innovative AI solut
 ## 🎯 The Challenge
 
 ### Project Summary
-In this project, you will use code datasets, developer interactions, code evaluation benchmarks, large language models (LLMs), supervised fine-tuning, and evaluation techniques to build and evaluate an AI system that improves performance in code generation, debugging, and code understanding. This will help our company address the challenge of improving accuracy, reliability, and evaluation of AI-powered coding assistants in real-world development environments.
+In this project, you will use code datasets, developer interactions, and code evaluation benchmarks and large language models (LLMs), supervised fine-tuning, and evaluation techniques to build and evaluate an AI system that improves code generation, debugging, and code understanding performance. This will help our company address the challenge of improving accuracy, reliability, and evaluation of AI-powered coding assistants in real-world development environments.
 
 ### Success Criteria
 Quantitative metrics, including Pass@k, functional correctness (unit test success rate), accuracy of bug fixes, and reduction in error rate—qualitative metrics, including code readability and developer usefulness.
@@ -62,7 +62,13 @@ Use these milestones to guide your work. Your team will create a **GitHub Projec
 
 | Month | Milestone | Key Activities |
 |-------|-----------|----------------|
-| **September** | Data Understanding | Explore dataset, handle missing values, document findings |
+| **September** | Data Understanding | Define project scope (e.g., code generation, bug fixing, or code explanation)
+Curate or construct a dataset:
+Code snippets + prompts (e.g., “fix this function,” “generate unit tests”)
+Ground truth outputs (correct code / expected behavior)
+Perform data preprocessing and formatting
+Establish baseline models (e.g., GPT/Claude or open-source LLMs)
+Define evaluation metrics (accuracy, pass@k, etc.) |
 | **October** | Model Development | Train baseline model, experiment with approaches, iterate |
 | **November** | Evaluation & Presentation | Finalize model, prepare presentation, document results |
 
@@ -72,38 +78,25 @@ Use these milestones to guide your work. Your team will create a **GitHub Projec
 
 ## 📊 Dataset
 
-**Name and Source:** Publicly available code datasets from https://github.com/harbor-framework/terminal-bench/  
+**Name and Source:** Harbor Framework public dataset
 **Format:** CSV, JSON  
 **Size:** under 1gb  
-**Location:** [Link to dataset or instructions for accessing it]
+**Location:** https://github.com/harbor-framework/terminal-bench/
 
 ### Key Details
-- Publicly available code datasets, developer interactions, and code evaluation benchmarks in CSV/TSV and JSON formats. Data includes text, numerical, and categorical types. Source: https://github.com/harbor-framework/terminal-bench/
-- No known limitations or preprocessing needed at this stage.
 - [Link to data dictionary or documentation, if available]
 
 ---
 
 ## 🛠️ Suggested Approach
 
-**ML Problem Type:** Supervised Learning, Natural Language Processing
+**ML Problem Type:** NLP, LLMs, Transfer Learning
 
 **Recommended Libraries:**
-- Large Language Models (LLMs)
-- Supervised fine-tuning
-- Evaluation techniques
-- GPT
-- Claude
-- Open-source LLMs
-- Natural Language Processing (NLP)
-- Transfer Learning
-- Pre-trained Models
+- [e.g., pandas, scikit-learn, TensorFlow, Hugging Face]
 
 **Evaluation Metrics:**
-- Pass@k
-- Functional correctness
-- Accuracy of bug fixes
-- Reduction in error rate
+- [e.g., Accuracy, Precision/Recall, RMSE, BLEU score]
 
 ---
 
@@ -112,19 +105,19 @@ Use these milestones to guide your work. Your team will create a **GitHub Projec
 The following resources will help your team understand the problem space and potential technical approaches for this project:
 
 **Background Reading:**
-- [Link to an article or blog post about the problem domain will be provided here]
-- [Link to an industry report or case study will be provided here]
+- [e.g., Link to an article or blog post about the problem domain]
+- [e.g., Link to an industry report or case study]
 
 **Technical Tutorials:**
-- [Link to a free tutorial on the ML technique(s) involved will be provided here]
-- [Link to documentation for a key library or tool will be provided here]
+- [e.g., Link to a free tutorial on the ML technique(s) involved]
+- [e.g., Link to documentation for a key library or tool]
 
 **Code Examples:**
-- [Link to a relevant GitHub repo will be provided here]
-- [Link to a sample implementation or starter code will be provided here]
+- [e.g., Link to a relevant GitHub repo]
+- [e.g., Link to a sample implementation or starter code]
 
 **Other:**
-- [Links to any additional resources — e.g., papers, videos, podcasts, etc. will be provided here]
+- [Links to any additional resources — e.g., papers, videos, podcasts, etc.]
 
 *Feel free to explore beyond these, and share anything interesting you find with me!*
 
@@ -132,14 +125,19 @@ The following resources will help your team understand the problem space and pot
 
 ## 🤝 How We'll Work Together
 
-**Check-ins:** During our biweekly 60-min AI Studio Lab Section meeting block (2nd and 4th week of every month)  
-**Communication:** Slack (Break Through Tech workspace)  
-**Response time:** Within 48 hours on weekdays  
+**Official check-ins:** During our biweekly 45-minute AI Studio Lab Section meeting block (2nd and 4th week of every month)
 
-**Recommended Tools:**
-- **Coding:** Google Colab
-- **Collaboration:** GitHub
-- **Virtual Meetings:** Zoom
+ **Other ways to reach out to me with questions:** 
+* [e.g., Your team's channel within Break Through Tech’s Discord space]
+* [e.g., Email; please copy your teammates and AI Studio Coach]
+* [e.g., Request a team check-in on Zoom]
+* [Note: I will aim to respond within 48 hours. Please reach out to your AI Studio Coach with urgent questions.]
+
+> 💡 **Challenge Advisor: Please update the above based on your availability and preference. If you are not able to answer questions or meet with fellows outside of the biweekly Lab Section check-ins, simply write in "N/A (only available during the official check-in times)"**
+
+**Recommended free coding / collaboration tools**
+* […]
+* […]
 
 ---
 
@@ -149,12 +147,8 @@ The following resources will help your team understand the problem space and pot
 2. **Begin reviewing the dataset** using the link above
 3. **Read the GitHub Projects documentation** [here](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects)
 
-I'm excited to work with you!
+I’m excited to work with you!
 
 ---
 
 ## ❓ Questions?
-
-Please bring any questions to our first meeting during the week of August 24th (Break Through Tech's Bridge to Studio - Session B).
-
----
