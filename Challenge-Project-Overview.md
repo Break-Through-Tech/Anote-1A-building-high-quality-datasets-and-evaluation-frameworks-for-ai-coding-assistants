@@ -54,23 +54,39 @@ Anote is focused on enhancing developer productivity through innovative AI solut
 In this project, you will use code datasets, developer interactions, and code evaluation benchmarks and large language models (LLMs), supervised fine-tuning, and evaluation techniques to build and evaluate an AI system that improves code generation, debugging, and code understanding performance. This will help our company address the challenge of improving accuracy, reliability, and evaluation of AI-powered coding assistants in real-world development environments.
 
 ### Success Criteria
-Quantitative metrics, including Pass@k, functional correctness (unit test success rate), accuracy of bug fixes, and reduction in error rate—qualitative metrics, including code readability and developer usefulness.
+_Quantitative Metrics:_ 
+- Pass@k (does generated code pass test cases)
+- Functional correctness (unit test success rate)
+- Accuracy of bug fixes / code transformations
+- Reduction in error rate vs baseline models
+
+_Qualitative Metrics:_
+- Code readability and quality
+- Developer usefulness (does output solve the task effectively)
+
+_Final Outcome (December):_
+- A working evaluation framework for AI coding models
+- A curated dataset for code tasks (generation, fixing, testing)
+- Demonstrated improvement vs baseline models
+- A reproducible pipeline for benchmarking coding assistants
+
+### Stretch Goals
+- Build a real-time evaluation system integrated into the Anote coding assistant
+- Add reinforcement learning / feedback loops (RLHF or RLAIF)
+- Expand to multi-file or full-repo reasoning
+- Add code execution environments (sandbox testing)
+- Create a leaderboard comparing models (Claude, GPT, open-source)
+- Incorporate human-in-the-loop feedback pipelines (core to Anote’s approach
 
 ### Project Milestones
 
 Use these milestones to guide your work. Your team will create a **GitHub Projects board** to track tasks within each milestone.
 
 | Month | Milestone | Key Activities |
-|-------|-----------|----------------|
-| **September** | Data Understanding | Define project scope (e.g., code generation, bug fixing, or code explanation)
-Curate or construct a dataset:
-Code snippets + prompts (e.g., “fix this function,” “generate unit tests”)
-Ground truth outputs (correct code / expected behavior)
-Perform data preprocessing and formatting
-Establish baseline models (e.g., GPT/Claude or open-source LLMs)
-Define evaluation metrics (accuracy, pass@k, etc.) |
-| **October** | Model Development | Train baseline model, experiment with approaches, iterate |
-| **November** | Evaluation & Presentation | Finalize model, prepare presentation, document results |
+|---|---|---|
+| September | Foundations & Data | • Define project scope (e.g., code generation, bug fixing, or code explanation)<br>• Curate or construct a dataset:<br>&nbsp;&nbsp;&nbsp;&nbsp;◦ Code snippets + prompts (e.g., "fix this function," "generate unit tests")<br>&nbsp;&nbsp;&nbsp;&nbsp;◦ Ground truth outputs (correct code / expected behavior)<br>• Perform data preprocessing and formatting<br>• Establish baseline models (e.g., GPT/Claude or open-source LLMs)<br>• Define evaluation metrics (accuracy, pass@k, etc.) |
+| October | Modeling & Evaluation | • Fine-tune or adapt models on curated datasets (if feasible)<br>• Build evaluation pipelines:<br>&nbsp;&nbsp;&nbsp;&nbsp;◦ Functional correctness testing (unit tests)<br>&nbsp;&nbsp;&nbsp;&nbsp;◦ Code similarity / semantic correctness scoring<br>• Run experiments comparing:<br>&nbsp;&nbsp;&nbsp;&nbsp;◦ Zero-shot vs fine-tuned models<br>• Analyze performance gaps and failure cases |
+| November | Optimization & Integration | • Improve dataset quality (add edge cases, error cases, difficult prompts)<br>• Iterate on model + evaluation pipeline<br>• Integrate outputs into a simple interface:<br>&nbsp;&nbsp;&nbsp;&nbsp;◦ CLI tool, notebook, or lightweight UI<br>• Produce final benchmarking report<br>• Prepare demo showcasing improved coding assistant performance |
 
 > **Note for the team:** Please create a GitHub Projects board in this repository to break these milestones into weekly tasks. Go to the **Projects** tab → **New project** → Choose **Board** → Add columns for each month.
 
@@ -90,7 +106,7 @@ Define evaluation metrics (accuracy, pass@k, etc.) |
 
 ## 🛠️ Suggested Approach
 
-**ML Problem Type:** NLP, LLMs, Transfer Learning
+**ML Problem Type:** Natural Language Processing (NLP), Large Language Models (LLMs)/ Generative AI, Transfer Learning / Pre-trained Models
 
 **Recommended Libraries:**
 - [e.g., pandas, scikit-learn, TensorFlow, Hugging Face]
