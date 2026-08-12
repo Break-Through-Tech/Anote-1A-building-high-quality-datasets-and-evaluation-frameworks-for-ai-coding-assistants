@@ -130,16 +130,16 @@ Use these milestones to guide your work. Your team will create a **GitHub Projec
 The following resources will help your team understand the problem space and potential technical approaches for this project:
 
 **Background Reading:**
-- [e.g., Link to an article or blog post about the problem domain]
-- [e.g., Link to an industry report or case study]
+- Harbor framework overview and documentation: https://github.com/harbor-framework/harbor
+- Terminal-Bench project overview: https://github.com/harbor-framework/terminal-bench
 
 **Technical Tutorials:**
-- [e.g., Link to a free tutorial on the ML technique(s) involved]
-- [e.g., Link to documentation for a key library or tool]
+- Harbor Cookbook (end-to-end examples for running and building benchmarks): linked from the Harbor repo README
+- Hugging Face documentation for fine-tuning and evaluating LLMs on code tasks
 
 **Code Examples:**
-- [e.g., Link to a relevant GitHub repo]
-- [e.g., Link to a sample implementation or starter code]
+- harbor-framework/terminal-bench-2-1 — current verified task set and submission workflow
+- harbor-framework/frontier-bench — successor benchmark, useful reference for task structure
 
 **Other:**
 - [Links to any additional resources — e.g., papers, videos, podcasts, etc.]
