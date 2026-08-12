@@ -111,7 +111,11 @@ Use these milestones to guide your work. Your team will create a **GitHub Projec
 **ML Problem Type:** Natural Language Processing (NLP), Large Language Models (LLMs)/ Generative AI, Transfer Learning / Pre-trained Models
 
 **Recommended Libraries:**
-- [e.g., pandas, scikit-learn, TensorFlow, Hugging Face]
+- pandas / numpy for data wrangling and prompt–response dataset construction
+- Hugging Face transformers / datasets for loading and fine-tuning open-source LLMs
+- pytest or task-specific test harnesses for functional correctness scoring
+- docker (via the Harbor/Terminal-Bench harness) for sandboxed code execution
+- OpenAI / Anthropic Python SDKs for baseline zero-shot / few-shot comparisons
 
 **Evaluation Metrics:**
 - [e.g., Accuracy, Precision/Recall, RMSE, BLEU score]
