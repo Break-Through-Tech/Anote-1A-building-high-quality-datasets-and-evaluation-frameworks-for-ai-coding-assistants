@@ -118,7 +118,10 @@ Use these milestones to guide your work. Your team will create a **GitHub Projec
 - OpenAI / Anthropic Python SDKs for baseline zero-shot / few-shot comparisons
 
 **Evaluation Metrics:**
-- [e.g., Accuracy, Precision/Recall, RMSE, BLEU score]
+- Pass@k
+- Unit test pass rate / functional correctness
+- Code similarity metrics (e.g., CodeBLEU) for semantic correctness scoring
+- Error-rate reduction vs. baseline model outputs
 
 ---
 
