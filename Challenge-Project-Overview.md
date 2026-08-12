@@ -101,10 +101,9 @@ Use these milestones to guide your work. Your team will create a **GitHub Projec
 
 ### Key Details
 - Terminal-Bench is a benchmark and execution harness for evaluating how well AI agents perform real, end-to-end tasks in a sandboxed terminal environment (e.g., compiling code, debugging, resolving security issues), maintained by the Harbor project.
-Harbor (https://github.com/harbor-framework/harbor) is the companion framework used to run and score agents against the benchmark — it supports evaluating agents like Claude Code, OpenHands, and Codex CLI, and can generate rollouts usable for RL-style fine-tuning.
-Tasks and results are tracked on the public Harbor Hub leaderboard; students should review the repo's README and tasks/ directory for the task schema and scoring rubric before building on top of it.
-Related repos worth skimming for structure/format reference: terminal-bench-2-1 (current verified task set) and frontier-bench (successor benchmark with harder tasks).
-
+- Harbor (https://github.com/harbor-framework/harbor) is the companion framework used to run and score agents against the benchmark — it supports evaluating agents like Claude Code, OpenHands, and Codex CLI, and can generate rollouts usable for RL-style fine-tuning.
+- Tasks and results are tracked on the public Harbor Hub leaderboard; students should review the repo's README and tasks/ directory for the task schema and scoring rubric before building on top of it.
+- Related repos worth skimming for structure/format reference: terminal-bench-2-1 (current verified task set) and frontier-bench (successor benchmark with harder tasks).
 ---
 
 ## 🛠️ Suggested Approach
