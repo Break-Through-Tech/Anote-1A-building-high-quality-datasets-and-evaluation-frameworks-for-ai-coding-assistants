@@ -151,7 +151,7 @@ The following resources will help your team understand the problem space and pot
 
  **Other ways to reach out to me with questions:** 
 * [e.g., Your team's channel within Break Through Tech’s Discord space]
-* [e.g., Email; please copy your teammates and AI Studio Coach]
+* [e.g., Rashmithimmaraju14@gmail.com; please copy your teammates and AI Studio Coach]
 * [e.g., Request a team check-in on Zoom]
 * [Note: I will aim to respond within 48 hours. Please reach out to your AI Studio Coach with urgent questions.]
 
