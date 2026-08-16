@@ -37,7 +37,8 @@ The project demonstrates a clear understanding of how to leverage LLMs in a prac
 # Building High-Quality Datasets and Evaluation Frameworks for AI Coding Assistants
 
 **Company / Org:** Anote  
-**Challenge Advisor:** Natan Vidra, nvidra@anote.ai  
+**Challenge Advisor:** Natan Vidra, nvidra@anote.ai.  
+**AI Studio Coach:** Bhavya Gopal, bhavya.gopal@breakthroughtech.ai.  
 **Program:** Break Through Tech AI Studio - Fall 2026
 
 ---
@@ -153,16 +154,13 @@ The following resources will help your team understand the problem space and pot
 **Official check-ins:** During our biweekly 45-minute AI Studio Lab Section meeting block (2nd and 4th week of every month)
 
  **Other ways to reach out to me with questions:** 
-* [e.g., Your team's channel within Break Through Tech’s Discord space]
-* [e.g., Rashmithimmaraju14@gmail.com; please copy your teammates and AI Studio Coach]
-* [e.g., Request a team check-in on Zoom]
-* [Note: I will aim to respond within 48 hours. Please reach out to your AI Studio Coach with urgent questions.]
+* Your team's channel within Break Through Tech’s Discord space
+* Rashmithimmaraju14@gmail.com; please copy your teammates and AI Studio Coach
+* Request a team check-in on Zoom
+* Note: I will aim to respond within 48 hours. Please reach out to your AI Studio Coach with urgent questions.
 
 > 💡 **Challenge Advisor: Please update the above based on your availability and preference. If you are not able to answer questions or meet with fellows outside of the biweekly Lab Section check-ins, simply write in "N/A (only available during the official check-in times)"**
 
-**Recommended free coding / collaboration tools**
-* […]
-* […]
 
 ---
 
