@@ -52,14 +52,17 @@ Anote is focused on enhancing developer productivity through innovative AI solut
 ## 🎯 The Challenge
 
 ### Project Summary
-In this project, you will use code datasets, developer interactions, and code evaluation benchmarks and large language models (LLMs), supervised fine-tuning, and evaluation techniques to build and evaluate an AI system that improves code generation, debugging, and code understanding performance. This will help our company address the challenge of improving accuracy, reliability, and evaluation of AI-powered coding assistants in real-world development environments.
+In this project, you will use code datasets, developer interactions, and code evaluation benchmarks alongside large language models (LLMs) and prompt-based evaluation techniques to build and evaluate an AI system that improves code generation, debugging, and code understanding performance. This will help our company address the challenge of improving accuracy, reliability, and evaluation of AI-powered coding assistants in real-world development environments.
+
+Scoping note (per SME review): To keep the project stable on Google Colab's free tier, this project is scoped around prompt engineering and retrieval rather than model fine-tuning, and around static evaluation rather than live sandboxed code execution. See the guardrails below
 
 ### Success Criteria
-_Quantitative Metrics:_ 
-- Pass@k (does generated code pass test cases)
-- Functional correctness (unit test success rate)
-- Accuracy of bug fixes / code transformations
-- Reduction in error rate vs baseline models
+_Quantitative Metrics:
+
+Pass@1 (does the top generated candidate pass a fixed, pre-defined test case set — evaluated statically rather than through a live execution loop)
+Structural / semantic correctness scoring via standard NLP similarity metrics (e.g., CodeBLEU, exact-match, AST-diff)
+Accuracy of bug fixes / code transformations against reference solutions
+Reduction in error rate vs. baseline model outputs
 
 _Qualitative Metrics:_
 - Code readability and quality
