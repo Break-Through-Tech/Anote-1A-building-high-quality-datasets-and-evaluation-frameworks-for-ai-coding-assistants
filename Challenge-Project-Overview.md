@@ -101,7 +101,8 @@ Use these milestones to guide your work. Your team will create a **GitHub Projec
 **Name and Source:** Harbor Framework public dataset
 **Format:** CSV, JSON  
 **Size:** under 1gb  
-**Location:** https://github.com/harbor-framework/terminal-bench/
+**Location:** GitHub (source of truth): https://github.com/harbor-framework/terminal-bench-2-1/tree/main/tasks
+Hugging Face (easier plain-file download for Colab): https://huggingface.co/datasets/harborframework/terminal-bench-2.0
 
 ### Key Details
 - Terminal-Bench is a benchmark and execution harness for evaluating how well AI agents perform real, end-to-end tasks in a sandboxed terminal environment (e.g., compiling code, debugging, resolving security issues), maintained by the Harbor project.
