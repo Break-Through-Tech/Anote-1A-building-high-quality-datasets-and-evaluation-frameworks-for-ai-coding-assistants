@@ -1,6 +1,6 @@
----
 
 # Building High-Quality Datasets and Evaluation Frameworks for AI Coding Assistants
+
 
 **Company / Org:** Anote  
 **Challenge Advisor:** Natan Vidra, nvidra@anote.ai.  
