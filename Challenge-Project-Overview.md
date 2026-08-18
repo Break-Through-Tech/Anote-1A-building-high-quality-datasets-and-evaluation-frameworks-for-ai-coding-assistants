@@ -147,7 +147,25 @@ The following resources will help your team understand the problem space and pot
 - harbor-framework/frontier-bench — successor benchmark, useful reference for task structure
 
 **Other:**
-- [Links to any additional resources — e.g., papers, videos, podcasts, etc.]
+- Papers
+
+Terminal-Bench 2.0 paper (the benchmark/dataset itself): Terminal-Bench 2.0 is a curated hard benchmark of 89 tasks in computer terminal environments, each with a unique environment, human-written solution, and comprehensive verification tests — https://arxiv.org/abs/2601.11868 
+arXiv
+Codex / HumanEval paper — introduces the Pass@k metric your Success Criteria section relies on: Codex is a GPT model fine-tuned on GitHub code, evaluated on HumanEval, a new set measuring functional correctness of programs synthesized from docstrings — https://arxiv.org/abs/2107.03374 
+arXiv
+CodeBLEU paper — the semantic similarity metric referenced in your Suggested Approach section: CodeBLEU absorbs the strength of BLEU in n-gram matching and further injects code syntax via abstract syntax trees and code semantics via data-flow — https://arxiv.org/abs/2009.10297 
+arXiv
+"Out of the BLEU" — good companion critique on why match-based metrics like CodeBLEU can diverge from human judgment: a study of six metrics — BLEU, ROUGE-L, METEOR, ChrF, CodeBLEU, and RUBY — found none reliably reflects human judgment on code quality when model score differences are small — https://arxiv.org/abs/2208.03133 
+arXiv
+
+Videos
+
+"Terminal-Bench: Benchmarking Agents on Hard, Realistic Tasks in CLI" (paper walkthrough) — https://www.youtube.com/watch?v=RRFeCml3mrQ
+Benchtalks #1: Alex Shaw on Terminal-Bench & Harbor — good context on how/why the benchmark and harness were built — https://www.youtube.com/watch?v=UCn5gG0haCI
+
+Docs/reference
+
+Harbor framework docs (tutorial on running Terminal-Bench) — https://www.harborframework.com/docs/tutorials/running-terminal-bench
 
 *Feel free to explore beyond these, and share anything interesting you find with me!*
 
