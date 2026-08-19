@@ -147,8 +147,6 @@ Harbor framework docs (tutorial on running Terminal-Bench) — https://www.harbo
 * Request a team check-in on Zoom
 * Note: I will aim to respond within 48 hours. Please reach out to your AI Studio Coach with urgent questions.
 
-> 💡 **Challenge Advisor: Please update the above based on your availability and preference. If you are not able to answer questions or meet with fellows outside of the biweekly Lab Section check-ins, simply write in "N/A (only available during the official check-in times)"**
-
 
 ---
 
