@@ -1,1 +1,3 @@
-
+anthropic
+datasets
+python-dotenv
