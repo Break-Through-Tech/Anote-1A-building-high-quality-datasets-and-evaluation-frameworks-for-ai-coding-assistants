@@ -1,1 +1,15 @@
+# Secrets - never commit real keys
+.env
 
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Run outputs (regenerate locally, don't commit)
+baseline_run.json
+
+# OS / editor
+.DS_Store
+.vscode/
