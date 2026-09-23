@@ -8,7 +8,8 @@ __pycache__/
 venv/
 
 # Run outputs (regenerate locally, don't commit)
-baseline_run.json
+*_run.json
+opensource_run.json
 
 # OS / editor
 .DS_Store
