@@ -1,13 +1,17 @@
 # Baseline configuration
 
+Both baselines below run from one shared script, `baseline.py` - same
+loading, same scoring, same output format. The only thing that differs
+per provider is the small "call this API" function; see the file for that.
+
 Locked comparison baseline, per Natan's 9/15/26 guidance: one model, one
 prompt, fixed decoding, one Panacea commit. Not meant to be "perfect" -
 this is what later prompting/routing/evaluator work gets compared against.
 
 **Attribution:** the Panacea config below is early research (done to unblock
-`panacea_baseline.py`, Task #4), not a finished decision. Identifying and
+`baseline.py`, Task #4), not a finished decision. Identifying and
 confirming the comparison config is Task #6, owned by Nebiyu. Treat this as a
-draft for him and us to confirm or adjust, not a finished product.
+draft for him to confirm or adjust, not a settled answer.
 
 ## Panacea version
 - Repo: https://github.com/anote-ai/Panacea
@@ -32,7 +36,7 @@ draft for him and us to confirm or adjust, not a finished product.
 ```
 pip install -r requirements.txt
 cp .env.example .env   # paste your ANTHROPIC_API_KEY
-python panacea_baseline.py 5
+python Baseline/baseline.py claude 5
 ```
 Writes `baseline_run.json` with this config, per-item results, and pass@1 scores.
 
@@ -58,7 +62,7 @@ OpenRouter instead of local hardware, on a free-tier model - $0 cost.
 ```
 pip install -r requirements.txt
 cp .env.example .env   # paste your OPENROUTER_API_KEY
-python opensource_baseline.py 3
+python Baseline/baseline.py opensource 3
 ```
 Writes `opensource_run.json`. Free-tier models are rate-limited (~50 requests/day without purchased credits) - keep the sample small.
 
