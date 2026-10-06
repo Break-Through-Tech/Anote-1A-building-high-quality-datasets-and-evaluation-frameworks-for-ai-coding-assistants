@@ -1,0 +1,6 @@
+,prompt_word_len,prompt_word_len,prompt_word_len,prompt_word_len,prompt_word_len,prompt_word_len,prompt_word_len,prompt_word_len,num_tests,num_tests,num_tests,num_tests,num_tests,num_tests,num_tests,num_tests,reference_lines,reference_lines,reference_lines,reference_lines,reference_lines,reference_lines,reference_lines,reference_lines
+,count,mean,std,min,25%,50%,75%,max,count,mean,std,min,25%,50%,75%,max,count,mean,std,min,25%,50%,75%,max
+source,,,,,,,,,,,,,,,,,,,,,,,,
+mbpp,377.0,19.214854111405835,7.352014635056533,9.0,15.0,18.0,21.0,81.0,377.0,3.103448275862069,0.4220186961466108,3.0,3.0,3.0,3.0,7.0,377.0,5.885941644562334,4.131513391100277,2.0,3.0,5.0,7.0,26.0
+humaneval,164.0,67.71951219512195,38.666030934488795,17.0,39.0,60.0,83.25,249.0,164.0,7.201219512195122,3.718928333743308,1.0,5.0,7.0,9.0,26.0,164.0,21.49390243902439,8.5454375235532,9.0,16.0,20.0,26.0,59.0
+livecodebench,131.0,315.618320610687,114.78699055308873,122.0,238.0,291.0,367.5,776.0,131.0,12.229007633587786,2.224219432645229,2.0,12.0,13.0,13.0,14.0,0.0,,,,,,,

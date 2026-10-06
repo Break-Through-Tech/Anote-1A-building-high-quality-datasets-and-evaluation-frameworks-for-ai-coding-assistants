@@ -11,6 +11,17 @@ venv/
 *_run.json
 opensource_run.json
 
+# Large dataset files (too big for git; regenerate from the notebooks)
+livecodebench_private_tests.jsonl
+livecodebench_processed.jsonl
+
 # OS / editor
 .DS_Store
 .vscode/
+
+
+# Project context and Claude
+/docs
+CLAUDE.MD
+CLAUDE.local.md
+STATUS.md
