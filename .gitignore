@@ -12,8 +12,7 @@ venv/
 opensource_run.json
 
 # Large dataset files (too big for git; regenerate from the notebooks)
-livecodebench_private_tests.jsonl
-livecodebench_processed.jsonl
+code_generation_private_tests.jsonl
 
 # OS / editor
 .DS_Store
