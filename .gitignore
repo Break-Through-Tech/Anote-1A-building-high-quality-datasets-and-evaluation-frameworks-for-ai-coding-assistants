@@ -26,3 +26,6 @@ CLAUDE.MD
 CLAUDE.local.md
 STATUS.md
 /.claude
+# Panacea comparison target (local clone + its venv)
+.venv-panacea/
+panacea/

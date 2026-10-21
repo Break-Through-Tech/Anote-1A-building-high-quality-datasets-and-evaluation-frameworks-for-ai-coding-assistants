@@ -119,13 +119,33 @@ def run_tests(code: str, tests: list, timeout: int = TIMEOUT_S) -> dict:
 # SCORING
 # =====================================================================
 
+# Test formats in data/unified/unified_eval.jsonl that run_tests() can execute as-is:
+#   assert_list    -> each test is an `assert ...` snippet
+#   check_fn       -> one snippet that defines check() and already calls it
+#   test_functions -> each test defines testN() and already calls it
+# Items from from_mbpp / from_humaneval above carry no test_format and are also fine.
+# LiveCodeBench's stdin_io / functional_io compare program output instead of running
+# asserts and are not supported yet.
+SUPPORTED_FORMATS = {None, "assert_list", "check_fn", "test_functions"}
+
+
+# True if evaluate() can score this item.
+def is_supported(item: dict) -> bool:
+    return item.get("test_format") in SUPPORTED_FORMATS
+
+
 # Score one model output against one item. This is the main entry point.
 def evaluate(item: dict, output: str, latency_s: float = None, output_tokens: int = None) -> dict:
     """
     score          = pass@1: 1.0 if every test passes, else 0.0  (primary metric)
     test_pass_rate = fraction of individual tests passed          (partial credit, diagnostic)
     latency_s / output_tokens are passed through so runs can be compared on speed and cost.
+    Unsupported test formats get score None, which summarize() leaves out of the averages.
     """
+    if not is_supported(item):
+        return {"id": item["id"], "source": item["source"], "score": None, "test_pass_rate": None,
+                "error": f"unsupported test_format: {item.get('test_format')}",
+                "latency_s": latency_s, "output_tokens": output_tokens}
     r = run_tests(extract_code(output), item["tests"])
     n, passed = len(item["tests"]), sum(r["results"])
     return {"id": item["id"], "source": item["source"],
@@ -181,6 +201,14 @@ if __name__ == "__main__":
     # Partial credit check: passes 1 of 2 MBPP asserts.
     r = evaluate(mbpp, "def add(a, b):\n    return 3", 0.0)
     assert r["score"] == 0.0 and r["test_pass_rate"] == 0.5, r
+
+    # Unified-dataset items: unsupported formats are skipped, not scored as failures.
+    lcb = {"id": "lcb-x", "source": "livecodebench", "test_format": "stdin_io", "tests": []}
+    assert evaluate(lcb, "print(1)")["score"] is None
+    fix = {"id": "fix-x", "source": "humanevalfix", "test_format": "check_fn",
+           "tests": ["def check(f):\n    assert f(2) == 4\n\ncheck(double)"]}
+    assert evaluate(fix, "```python\ndef double(x):\n    return x * 2\n```")["score"] == 1.0
+    assert evaluate(fix, "def double(x):\n    return x + 3")["score"] == 0.0
 
     print(summarize([evaluate(mbpp, cases[0][1], 1.0, 50), evaluate(he, cases[5][1], 2.0, 70)]))
     print("ALL TESTS PASSED")

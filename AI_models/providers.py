@@ -18,8 +18,20 @@ for Nebiyu to confirm or adjust, not a settled decision.
 """
 
 # --- imports ---
-import anthropic
-from openai import OpenAI  # OpenRouter speaks the OpenAI API format
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+# Where the Panacea clone lives (see panacea_config.md, section 4). Override with PANACEA_PATH.
+PANACEA_DIR = Path(os.environ.get("PANACEA_PATH") or Path(__file__).resolve().parent.parent.parent / "panacea")
+
+
+# Raised by an adapter when the provider ran but gave no usable answer (not a model mistake).
+# baseline.py records the item as a failed run instead of stopping the whole batch.
+class AdapterError(RuntimeError):
+    pass
 
 
 # =====================================================================
@@ -51,6 +63,64 @@ def call_opensource(client, item, cfg):
     return text, tokens, resp.model  # resp.model: "openrouter/free" auto-routes, record what actually answered
 
 
+# Flatten a LangChain-style result into plain text (newer langchain-anthropic returns a list of content blocks).
+def _to_text(out) -> str:
+    if isinstance(out, str):
+        return out
+    if isinstance(out, list):
+        return "".join(b if isinstance(b, str) else b.get("text", "") for b in out)
+    return str(out)
+
+
+# Call Panacea's own coding agent (packages/backend/agents/coding_agent.py, see panacea_config.md).
+# `client` is the run_coding_agent function itself (built by _load_panacea below).
+def call_panacea(client, item, cfg):
+    with tempfile.TemporaryDirectory() as empty_dir:  # prompt-only: the agent's file tools see nothing
+        out = _to_text(client(item["prompt"], cwd=empty_dir))
+    # run_coding_agent swallows every exception and returns it as a string, so check for it.
+    if out.startswith("Agent error:"):
+        raise AdapterError(out[:300])
+    return out, None, cfg["model"]  # the function does not expose token usage
+
+
+# Return the dataset's own reference solution. No API, no cost: a sanity check that the
+# whole pipeline (loading, prompts, code extraction, scoring) works. Expect pass@1 = 1.0.
+def call_reference(client, item, cfg):
+    if not item.get("reference"):
+        raise AdapterError("item has no reference solution")
+    return "```python\n" + item["reference"] + "\n```", 0, "reference"
+
+
+# Build the Anthropic client (imported here so the reference provider works without the anthropic package).
+def _anthropic_client(key):
+    import anthropic
+    return anthropic.Anthropic(api_key=key)
+
+
+# Build the OpenRouter client (imported here so the other providers work without the openai package).
+def _openrouter_client(key):
+    from openai import OpenAI  # OpenRouter speaks the OpenAI API format
+    return OpenAI(base_url="https://openrouter.ai/api/v1", api_key=key)
+
+
+# Import Panacea's run_coding_agent from the pinned clone and check we are on the pinned commit.
+def _load_panacea(key):
+    backend = PANACEA_DIR / "packages" / "backend"
+    if not (backend / "agents" / "coding_agent.py").exists():
+        raise SystemExit(f"Panacea not found at {PANACEA_DIR}. Clone it (panacea_config.md, section 4) "
+                         f"or set PANACEA_PATH.")
+    want = PROVIDERS["panacea"]["config"]["panacea_commit"]
+    have = subprocess.run(["git", "-C", str(PANACEA_DIR), "rev-parse", "HEAD"],
+                          capture_output=True, text=True).stdout.strip()
+    if have != want:
+        raise SystemExit(f"Panacea is at {have[:7] or 'unknown'}, expected pinned commit {want[:7]}. "
+                         f"Run: git -C {PANACEA_DIR} checkout {want}")
+    os.environ["ANTHROPIC_API_KEY"] = key  # run_coding_agent reads the key from the environment
+    sys.path.insert(0, str(backend))
+    from agents.coding_agent import run_coding_agent
+    return run_coding_agent
+
+
 # =====================================================================
 # PROVIDERS
 # =====================================================================
@@ -67,7 +137,7 @@ PROVIDERS = {
         "api_key_env": "ANTHROPIC_API_KEY",
         "output_file": "baseline_run.json",
         "default_n": 5,
-        "client_factory": lambda key: anthropic.Anthropic(api_key=key),
+        "client_factory": _anthropic_client,
         "call": call_claude,
     },
     "opensource": {
@@ -83,7 +153,32 @@ PROVIDERS = {
         "api_key_env": "OPENROUTER_API_KEY",
         "output_file": "opensource_run.json",
         "default_n": 3,  # free-tier models are rate-limited (~50 requests/day) - keep this small
-        "client_factory": lambda key: OpenAI(base_url="https://openrouter.ai/api/v1", api_key=key),
+        "client_factory": _openrouter_client,
         "call": call_opensource,
+    },
+    "panacea": {
+        "config": {
+            "panacea_repo": "https://github.com/anote-ai/Autonomous-Intelligence",
+            "panacea_commit": "bea399509efbab4ac242042b64f8b28b8865691e",  # same pin as "claude" above
+            "component": "packages/backend/agents/coding_agent.py :: run_coding_agent",
+            "model": "claude-sonnet-4-6",           # hardcoded inside run_coding_agent
+            "system_prompt": "You are an expert coding assistant.",  # hardcoded inside run_coding_agent
+            "tools": ["read_file", "list_files"],
+            "max_iterations": 5,
+            "temperature": "not set (Anthropic API default)",  # Panacea does not expose it; see panacea_config.md section 7
+        },
+        "api_key_env": "ANTHROPIC_API_KEY",
+        "output_file": "panacea_run.json",
+        "default_n": 3,  # the agent loop makes several API calls per item, keep it small first
+        "client_factory": _load_panacea,
+        "call": call_panacea,
+    },
+    "reference": {
+        "config": {"note": "returns each item's reference solution; pipeline sanity check, no API"},
+        "api_key_env": None,
+        "output_file": "reference_run.json",
+        "default_n": 5,
+        "client_factory": lambda key: None,
+        "call": call_reference,
     },
 }
