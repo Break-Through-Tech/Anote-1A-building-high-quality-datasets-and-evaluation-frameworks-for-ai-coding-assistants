@@ -27,7 +27,7 @@ Usage (run from the repo root, not from inside Baseline/):
 
 Options:
     --level  raw | basic | detailed | extreme | all   (default raw = the dataset's own prompt)
-    --task   code_generation | bug_fixing | all       (default all)
+    --task   code_generation | bug_fixing | all       (default code_generation, as on main)
 
 Setup:
     pip install -r requirements.txt
@@ -49,34 +49,15 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from Evaluator.evaluator import evaluate, is_supported, summarize
+from Evaluator.evaluator import evaluate, load_items, summarize
 from AI_models.prompts import ALL_LEVELS, LEVELS, build_prompt
 from AI_models.providers import PROVIDERS, AdapterError
-
-DATA_PATH = REPO_ROOT / "data" / "unified" / "unified_eval.jsonl"
 
 try:
     from dotenv import load_dotenv
     load_dotenv(REPO_ROOT / ".env")  # .env lives at the repo root, not in Baseline/
 except ImportError:  # python-dotenv not installed: fall back to the shell environment
     pass
-
-
-# =====================================================================
-# LOAD ITEMS
-# =====================================================================
-
-# Take the first n problems from each dataset in the unified file. Fixed order
-# (file order, always the first n) = reproducible. Items the evaluator cannot
-# score yet (LiveCodeBench) are skipped so they don't cost API calls.
-def load_items(n: int, task: str = "all", path: Path = DATA_PATH) -> list:
-    with open(path) as f:
-        rows = [json.loads(line) for line in f]
-    rows = [r for r in rows if is_supported(r) and task in ("all", r["task_type"])]
-    items = []
-    for src in dict.fromkeys(r["source"] for r in rows):  # datasets in first-seen order
-        items += [r for r in rows if r["source"] == src][:n]
-    return items
 
 
 # =====================================================================
@@ -139,11 +120,12 @@ def main():
     ap.add_argument("provider", choices=list(PROVIDERS))
     ap.add_argument("n", nargs="?", type=int, help="problems per dataset (default: provider's default_n)")
     ap.add_argument("--level", default="raw", choices=list(ALL_LEVELS) + ["all"])
-    ap.add_argument("--task", default="all", choices=["all", "code_generation", "bug_fixing"])
+    ap.add_argument("--task", default="code_generation", choices=["all", "code_generation", "bug_fixing"])
     args = ap.parse_args()
 
     provider_name = args.provider
     p = PROVIDERS[provider_name]
+    # n = tasks per dataset (first n in file order, so runs are reproducible)
     n = args.n if args.n is not None else p["default_n"]
     levels = list(LEVELS) if args.level == "all" else [args.level]
 
@@ -155,7 +137,8 @@ def main():
             sys.exit(f"{p['api_key_env']} not set. Copy .env.example to .env and fill it in.")
 
     client = p["client_factory"](api_key)
-    items = load_items(n, args.task)
+    # "all" keeps every task type; the evaluator skips items it cannot score yet (and says so on stderr)
+    items = load_items(task_type=None if args.task == "all" else args.task, n_per_source=n)
     if not items:
         sys.exit("No items to run (check --task).")
     print(f"{provider_name}: {len(items)} items x {len(levels)} level(s): {', '.join(levels)}", file=sys.stderr)

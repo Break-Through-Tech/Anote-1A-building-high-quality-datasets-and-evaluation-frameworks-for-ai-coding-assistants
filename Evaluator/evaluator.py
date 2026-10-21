@@ -2,8 +2,9 @@
 evaluator.py
 
 Scores model-generated Python code for the code-generation task (Task #5).
-Converts MBPP/HumanEval rows into one shared item format, runs the generated
-code against each item's tests in a sandboxed subprocess, and reports pass@1.
+Loads items from the final dataset (data/unified/unified_eval.jsonl, built by
+notebooks/unified_dataset.ipynb), runs the generated code against each item's
+tests in a sandboxed subprocess, and reports pass@1.
 """
 
 # --- imports ---
@@ -13,24 +14,69 @@ import re
 import subprocess
 import sys
 import tempfile
+from collections import Counter
+from pathlib import Path
 
 # --- config ---
 TIMEOUT_S = 10  # max seconds a candidate's code + tests are allowed to run
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DATASET_PATH = REPO_ROOT / "data" / "unified" / "unified_eval.jsonl"  # the final dataset
+# test_format values run_tests can execute (tests are Python snippets).
+# LiveCodeBench's "stdin_io" / "functional_io" need an I/O test runner - add them here once it exists.
+PYTHON_TEST_FORMATS = {"assert_list", "check_fn", "test_functions"}
 
 
 # =====================================================================
 # UNIFIED ITEM SCHEMA
-# Every dataset gets converted to one shape so the same scorer works
+# Every row of the final dataset has one shape, so the same scorer works
 # for all of them:
 #   id          -> unique string, e.g. "mbpp-11"
-#   task_type   -> always "code_generation" here
-#   source      -> "mbpp" | "humaneval" | ...
+#   task_type   -> "code_generation" | "bug_fixing"
+#   source      -> "mbpp" | "livecodebench" | "quixbugs" | "humanevalfix"
 #   prompt      -> exactly what gets sent to the model
 #   reference   -> ground-truth solution (for humans; not used in scoring)
 #   tests       -> list of python snippets; each must run without raising
+#   test_format -> which kind of tests (see PYTHON_TEST_FORMATS)
+#   entry_point -> function the tests call
+#   metadata    -> task-specific details (difficulty, ...); never sent to the model
 # =====================================================================
 
-# Convert one raw MBPP row into the shared item format.
+# Load items from the final dataset. File order is fixed, so the same arguments give the same items.
+def load_items(path: Path = DATASET_PATH, task_type: str = "code_generation", sources: list = None,
+               n_per_source: int = None, scorable_only: bool = True) -> list:
+    """
+    task_type     -> keep only this task type (None keeps all)
+    sources       -> keep only these sources, e.g. ["mbpp"] (None keeps all)
+    n_per_source  -> first n items of each source (None keeps all)
+    scorable_only -> skip items whose test_format run_tests can't execute yet,
+                     so no API calls are spent on tasks that can't be scored
+    """
+    if not Path(path).exists():
+        sys.exit(f"{path} not found. Run notebooks/unified_dataset.ipynb to build the final dataset.")
+    with open(path) as f:
+        items = [json.loads(line) for line in f if line.strip()]
+    if task_type:
+        items = [it for it in items if it["task_type"] == task_type]
+    if sources:
+        items = [it for it in items if it["source"] in sources]
+    if scorable_only:
+        skipped = Counter(it["source"] for it in items if it["test_format"] not in PYTHON_TEST_FORMATS)
+        if skipped:
+            print(f"[evaluator] skipping {sum(skipped.values())} items with no test runner yet: {dict(skipped)}",
+                  file=sys.stderr)
+        items = [it for it in items if it["test_format"] in PYTHON_TEST_FORMATS]
+    if n_per_source:
+        kept, per_source = [], Counter()
+        for it in items:
+            per_source[it["source"]] += 1
+            if per_source[it["source"]] <= n_per_source:
+                kept.append(it)
+        items = kept
+    return items
+
+
+# Convert one raw MBPP row into the shared item format (used by the self-test below;
+# real runs load already-converted items with load_items()).
 def from_mbpp(row: dict) -> dict:
     """MBPP fields: task_id, text, code, test_list, test_setup_code, challenge_test_list."""
     # MBPP's text prompt doesn't name the function, but the tests do -
@@ -43,7 +89,8 @@ def from_mbpp(row: dict) -> dict:
             "prompt": prompt, "reference": row["code"], "tests": tests}
 
 
-# Convert one raw HumanEval row into the shared item format.
+# Convert one raw HumanEval row into the shared item format (self-test only; HumanEval
+# is no longer in the dataset).
 def from_humaneval(row: dict) -> dict:
     """HumanEval fields: task_id, prompt, canonical_solution, test, entry_point."""
     prompt = f"Complete this Python function. Return the full function.\n\n{row['prompt']}"
@@ -119,21 +166,6 @@ def run_tests(code: str, tests: list, timeout: int = TIMEOUT_S) -> dict:
 # SCORING
 # =====================================================================
 
-# Test formats in data/unified/unified_eval.jsonl that run_tests() can execute as-is:
-#   assert_list    -> each test is an `assert ...` snippet
-#   check_fn       -> one snippet that defines check() and already calls it
-#   test_functions -> each test defines testN() and already calls it
-# Items from from_mbpp / from_humaneval above carry no test_format and are also fine.
-# LiveCodeBench's stdin_io / functional_io compare program output instead of running
-# asserts and are not supported yet.
-SUPPORTED_FORMATS = {None, "assert_list", "check_fn", "test_functions"}
-
-
-# True if evaluate() can score this item.
-def is_supported(item: dict) -> bool:
-    return item.get("test_format") in SUPPORTED_FORMATS
-
-
 # Score one model output against one item. This is the main entry point.
 def evaluate(item: dict, output: str, latency_s: float = None, output_tokens: int = None) -> dict:
     """
@@ -142,9 +174,11 @@ def evaluate(item: dict, output: str, latency_s: float = None, output_tokens: in
     latency_s / output_tokens are passed through so runs can be compared on speed and cost.
     Unsupported test formats get score None, which summarize() leaves out of the averages.
     """
-    if not is_supported(item):
+    fmt = item.get("test_format", "assert_list")
+    if fmt not in PYTHON_TEST_FORMATS:
+        # Don't report a fake 0.0: summarize() skips None when averaging.
         return {"id": item["id"], "source": item["source"], "score": None, "test_pass_rate": None,
-                "error": f"unsupported test_format: {item.get('test_format')}",
+                "error": f"no test runner for test_format={fmt!r} yet",
                 "latency_s": latency_s, "output_tokens": output_tokens}
     r = run_tests(extract_code(output), item["tests"])
     n, passed = len(item["tests"]), sum(r["results"])
@@ -202,13 +236,21 @@ if __name__ == "__main__":
     r = evaluate(mbpp, "def add(a, b):\n    return 3", 0.0)
     assert r["score"] == 0.0 and r["test_pass_rate"] == 0.5, r
 
-    # Unified-dataset items: unsupported formats are skipped, not scored as failures.
-    lcb = {"id": "lcb-x", "source": "livecodebench", "test_format": "stdin_io", "tests": []}
-    assert evaluate(lcb, "print(1)")["score"] is None
+    # An I/O-test item isn't scored as a failure, it's left unscored.
+    lcb = {"id": "livecodebench-x", "source": "livecodebench", "test_format": "stdin_io",
+           "tests": [{"input": "1\n", "output": "1\n", "testtype": "stdin"}]}
+    assert evaluate(lcb, "print(input())")["score"] is None
+    # check_fn items (HumanEvalFix style): the test calls check() on the entry point itself.
     fix = {"id": "fix-x", "source": "humanevalfix", "test_format": "check_fn",
            "tests": ["def check(f):\n    assert f(2) == 4\n\ncheck(double)"]}
     assert evaluate(fix, "```python\ndef double(x):\n    return x * 2\n```")["score"] == 1.0
     assert evaluate(fix, "def double(x):\n    return x + 3")["score"] == 0.0
 
     print(summarize([evaluate(mbpp, cases[0][1], 1.0, 50), evaluate(he, cases[5][1], 2.0, 70)]))
+
+    # The final dataset, if it has been built: every item has the fields evaluate() needs.
+    if DATASET_PATH.exists():
+        items = load_items()
+        assert items and all({"id", "source", "prompt", "tests", "test_format"} <= it.keys() for it in items)
+        print(f"ok load_items: {len(items)} scorable code-generation items from {DATASET_PATH.name}")
     print("ALL TESTS PASSED")
