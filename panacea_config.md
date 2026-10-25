@@ -53,14 +53,14 @@ Config:
 - System prompt: "You are an expert coding assistant."
 - Tools: `read_file`, `list_files` (cwd-scoped)
 - `max_iterations=5`
-- Panacea's own decoding defaults, since no temperature is set in the function
+- Decoding: stock Panacea sets neither `max_tokens` nor `temperature` in the function (LangChain's 1024 tokens, the API's temperature 1.0). **We set both at load time** (`_load_panacea` in `AI_models/providers.py` wraps `langchain_anthropic.ChatAnthropic`), to the values every arm shares: `max_tokens` 4096, `temperature` 0.5, `max_retries` 2. The clone itself is not edited. This is a flagged deviation from stock Panacea, to be reported to Natan in the next update.
 
 Why:
 - **Reproducible on a laptop.** It is a plain Python function. No Docker, MySQL, Redis, Tika or auth. Only three pip packages plus one API key.
 - **Closest to "prompt in, code out".** `run_coding_agent(prompt) -> str`.
 - **Same inputs as our baseline.**
   - Same model, same system prompt and same user-prompt shape as `Baseline/BASELINE.md`.
-  - Our MBPP/HumanEval/Terminal-Bench prompt strings go in unchanged.
+  - Our prompt strings from `data/unified/unified_eval.jsonl` go in unchanged.
   - It does not depend on files in a repo, so static evaluation works.
 - **Version is pinned.** One commit, one hardcoded model, no config file to drift.
 - **Other candidates fall short.**
@@ -131,9 +131,9 @@ For the optional CLI config (B), `ANTHROPIC_API_KEY` must be set even when using
 
 ## 6. How it plugs into the 3-arm comparison
 
-- **Shared inputs.** One test set (Terminal-Bench-derived prompt to ground-truth pairs). Each row gives the same `prompt` string to every arm.
+- **Shared inputs.** One test set, `data/unified/unified_eval.jsonl` (code generation: MBPP + LiveCodeBench). Each row gives the same `prompt` string to every arm, and every arm runs from the same task list (`baseline.py --ids`, `data/unified/task_lists/`).
 - **Arm 1, zero-shot baseline.**
-  - `Baseline/baseline.py claude` (already in the repo): `claude-sonnet-4-6`, temperature 0, `max_tokens` 4096.
+  - `Baseline/baseline.py claude` (already in the repo): `claude-sonnet-4-6` with the shared settings (`max_tokens` 4096, temperature 0.5, 2 SDK retries).
 - **Arm 2, our agentic pipeline.**
   - Router, then task-specific prompt, then Evaluator-Optimizer retry loop.
   - Uses the same underlying model as arms 1 and 3, so gains come from orchestration and not from a stronger model.
@@ -141,7 +141,7 @@ For the optional CLI config (B), `ANTHROPIC_API_KEY` must be set even when using
   - Add a `call_panacea(client, item, cfg)` adapter in `AI_models/providers.py`, same `(text, tokens, model_used)` return shape as `call_claude`.
   - It calls `run_coding_agent(item["prompt"], cwd=<empty temp dir>)`.
   - Treat an `Agent error:` prefix as a failed run.
-  - Record `model_used = "claude-sonnet-4-6"` and the Panacea commit hash in `baseline_run.json`.
+  - Record `model_used = "claude-sonnet-4-6"` and the Panacea commit hash in `panacea_run.json`.
   - Token usage is not exposed by the function, so report cost separately or estimate it.
 - **Arms 4 and 5, Claude Code and Codex** (advisor request).
   - Different kind of arm (agentic CLIs with their own tools).
@@ -153,7 +153,7 @@ For the optional CLI config (B), `ANTHROPIC_API_KEY` must be set even when using
   - Fixed Panacea commit.
   - Run each arm on the same items in the same order.
   - Log the model that actually answered.
-  - Note that Panacea's temperature is not set (Anthropic default of 1.0), unlike our baseline's 0.
+  - Same decoding settings for every arm: Panacea gets our `max_tokens`, `temperature` and `max_retries` at load time (section 3).
 
 ---
 
@@ -164,7 +164,7 @@ For the optional CLI config (B), `ANTHROPIC_API_KEY` must be set even when using
    - Or the `anote` CLI, which is the fuller coding product but runs on the Claude Agent SDK, the same engine as Claude Code.
    - Or the multi-agent orchestrator in the legacy `backend/`, which is built for document Q&A, not code.
 2. **Is a near-baseline Panacea arm acceptable?** With a self-contained prompt and read-only file tools, we expect little difference from zero-shot.
-3. **Temperature.** The Panacea agent does not set one, so it runs at the API default. Are we allowed to patch it to 0 for fairness (a one-line change)? That would deviate from stock Panacea.
+3. **Temperature and `max_tokens`. Decided by the team (2026-10-25):** we set both on Panacea at load time, to the values every arm shares (temperature 0.5, `max_tokens` 4096), and tell Natan in the next update. This deviates from stock Panacea. Temperature 0.5 needs a model that still accepts it (such as `claude-sonnet-4-6`); it is settled again when the experiment model is chosen.
 4. **Repo name.** `Baseline/BASELINE.md` links `anote-ai/Panacea`, but this task used `anote-ai/Autonomous-Intelligence`. The commit hash matches. Confirm which is the canonical repo.
 5. **Cost.** The Panacea arm needs a paid Anthropic key (a few cents per handful of tasks). Is there a team key, or should we use the OpenRouter free tier for the open-source arm only?
 6. **Static evaluation vs tools.** Panacea's agent can read files. Should we give it the task's repo files in `cwd`, or keep it prompt-only to match the baseline?
