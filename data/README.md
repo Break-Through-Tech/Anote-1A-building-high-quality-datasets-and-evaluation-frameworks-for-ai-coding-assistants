@@ -49,6 +49,8 @@ The self-correction experiment shows the model its failing **public** tests and 
 
 **No private test copies a public one.** In both sources, a private test whose input equals a public test's input is dropped before the cap of 10 (MBPP: `split_mbpp_plus`; LiveCodeBench: `drop_public_copies`). A retry chain stops once the public tests pass, so a copy would pass for free and inflate the score.
 
+**Known caveat: repeated LiveCodeBench hidden tests.** LiveCodeBench's own hidden lists sometimes repeat a test (same input and output). We keep the repeats. pass@1 is unaffected, because a repeated test passes or fails the same way, but test pass rate counts a repeat more than once. 10 of the 80 eval tasks have repeats, and 2 of them have fewer than 5 distinct hidden tests: `livecodebench-abc393_a` (2) and `livecodebench-abc391_a` (4). Keep this in mind when reading partial credit, or results for those two tasks.
+
 Private tests use the same `test_format` as the task's public tests, so one runner scores both. A code-generation task can only enter the evaluation set if its private tests pass these checks:
 - **MBPP:** at least 5 private tests, the reference solution passes all of them, and a function that just returns `None` fails at least one. MBPP tasks that fail these checks stay in the pool.
 - **LiveCodeBench:** at least 5 private tests (hard tasks are exempt, because LiveCodeBench ships only a few for some hard problems), and every test has an input and an output string. LiveCodeBench ships no reference solutions, so there is no reference or `None`-stub check.
