@@ -24,8 +24,13 @@ import sys
 import tempfile
 from pathlib import Path
 
-# Where the Panacea clone lives (see panacea_config.md, section 4). Override with PANACEA_PATH.
-PANACEA_DIR = Path(os.environ.get("PANACEA_PATH") or Path(__file__).resolve().parent.parent.parent / "panacea")
+# Where the Panacea clone lives: the repo root, as in panacea_config.md section 4 (and .gitignore).
+# Override with PANACEA_PATH.
+PANACEA_DIR = Path(os.environ.get("PANACEA_PATH") or Path(__file__).resolve().parent.parent / "panacea")
+
+# Output-length cap shared by every arm, so no arm gets cut off sooner than another.
+# Placeholder value until the experiment model and budget are chosen; change it only here.
+MAX_TOKENS = 4096
 
 
 # Raised by an adapter when the provider ran but gave no usable answer (not a model mistake).
@@ -116,6 +121,19 @@ def _load_panacea(key):
         raise SystemExit(f"Panacea is at {have[:7] or 'unknown'}, expected pinned commit {want[:7]}. "
                          f"Run: git -C {PANACEA_DIR} checkout {want}")
     os.environ["ANTHROPIC_API_KEY"] = key  # run_coding_agent reads the key from the environment
+
+    # run_coding_agent imports ChatAnthropic inside its body and never sets max_tokens (so LangChain's
+    # default of 1024 applies). Wrap the class it imports so it gets the shared cap. The clone is not edited.
+    import langchain_anthropic
+    chat_anthropic = langchain_anthropic.ChatAnthropic
+    cap = PROVIDERS["panacea"]["config"]["max_tokens"]
+
+    def capped_chat_anthropic(*args, **kwargs):
+        kwargs.setdefault("max_tokens", cap)
+        return chat_anthropic(*args, **kwargs)
+
+    langchain_anthropic.ChatAnthropic = capped_chat_anthropic
+
     sys.path.insert(0, str(backend))
     from agents.coding_agent import run_coding_agent
     return run_coding_agent
@@ -131,7 +149,7 @@ PROVIDERS = {
             "panacea_commit": "bea399509efbab4ac242042b64f8b28b8865691e",  # main as of 2026-09-15
             "model": "claude-sonnet-4-6",           # Panacea's DEFAULT_MODEL / coding agent model
             "system_prompt": "You are an expert coding assistant.",  # coding_agent.py
-            "max_tokens": 4096,                     # llm.complete() default
+            "max_tokens": MAX_TOKENS,               # shared with every arm (see MAX_TOKENS above)
             "temperature": 0,                       # not set in Panacea; pinned here for reproducibility
         },
         "api_key_env": "ANTHROPIC_API_KEY",
@@ -147,7 +165,7 @@ PROVIDERS = {
             # model that actually answered is recorded per-item as "model_used"
             "model": "openrouter/free",
             "system_prompt": "You are an expert coding assistant.",  # same prompt, for a fair comparison
-            "max_tokens": 4096,
+            "max_tokens": MAX_TOKENS,
             "temperature": 0,
         },
         "api_key_env": "OPENROUTER_API_KEY",
@@ -165,6 +183,7 @@ PROVIDERS = {
             "system_prompt": "You are an expert coding assistant.",  # hardcoded inside run_coding_agent
             "tools": ["read_file", "list_files"],
             "max_iterations": 5,
+            "max_tokens": MAX_TOKENS,               # stock Panacea uses LangChain's 1024; set at load time (_load_panacea)
             "temperature": "not set (Anthropic API default)",  # Panacea does not expose it; see panacea_config.md section 7
         },
         "api_key_env": "ANTHROPIC_API_KEY",

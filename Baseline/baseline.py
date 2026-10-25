@@ -23,11 +23,11 @@ Usage (run from the repo root, not from inside Baseline/):
     python Baseline/baseline.py reference 5              # no API: sanity-checks the pipeline, expect 1.0
 
     python Baseline/baseline.py claude 5 --level all     # basic, detailed and extreme prompts
-    python Baseline/baseline.py claude 5 --level basic --task bug_fixing
 
 Options:
     --level  raw | basic | detailed | extreme | all   (default raw = the dataset's own prompt)
-    --task   code_generation | bug_fixing | all       (default code_generation, as on main)
+    --task   code_generation                          (bug_fixing / all commented out until
+                                                       the bug-fix experiments start)
 
 Setup:
     pip install -r requirements.txt
@@ -120,7 +120,8 @@ def main():
     ap.add_argument("provider", choices=list(PROVIDERS))
     ap.add_argument("n", nargs="?", type=int, help="problems per dataset (default: provider's default_n)")
     ap.add_argument("--level", default="raw", choices=list(ALL_LEVELS) + ["all"])
-    ap.add_argument("--task", default="code_generation", choices=["all", "code_generation", "bug_fixing"])
+    # Bug fixing is commented out until the bug-fix experiments (secondary set).
+    ap.add_argument("--task", default="code_generation", choices=["code_generation"])  # , "bug_fixing", "all"
     args = ap.parse_args()
 
     provider_name = args.provider
