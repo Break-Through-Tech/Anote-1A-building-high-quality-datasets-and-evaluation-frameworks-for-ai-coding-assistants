@@ -28,9 +28,11 @@ from pathlib import Path
 # Override with PANACEA_PATH.
 PANACEA_DIR = Path(os.environ.get("PANACEA_PATH") or Path(__file__).resolve().parent.parent / "panacea")
 
-# Output-length cap shared by every arm, so no arm gets cut off sooner than another.
-# Placeholder value until the experiment model and budget are chosen; change it only here.
-MAX_TOKENS = 4096
+# Decoding settings shared by every arm, so the arms differ only in how they are orchestrated.
+# Change them only here.
+MAX_TOKENS = 4096   # output cap; placeholder until the experiment model and budget are chosen
+TEMPERATURE = 0.5   # above 0 so the fresh-resample control arm actually resamples
+MAX_RETRIES = 2     # the SDK's own retries on temporary API errors (rate limit, overload, timeout, 5xx)
 
 
 # Raised by an adapter when the provider ran but gave no usable answer (not a model mistake).
@@ -47,10 +49,16 @@ class AdapterError(RuntimeError):
 
 # Call Claude directly (Anthropic's own SDK / request shape).
 def call_claude(client, item, cfg):
-    resp = client.messages.create(
-        model=cfg["model"], max_tokens=cfg["max_tokens"], temperature=cfg["temperature"],
-        system=cfg["system_prompt"], messages=[{"role": "user", "content": item["prompt"]}],
-    )
+    import anthropic
+    try:
+        resp = client.messages.create(
+            model=cfg["model"], max_tokens=cfg["max_tokens"], temperature=cfg["temperature"],
+            system=cfg["system_prompt"], messages=[{"role": "user", "content": item["prompt"]}],
+        )
+    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as e:
+        raise SystemExit(f"Anthropic rejected the API key, so every task would fail: {e}")
+    except anthropic.APIError as e:  # the SDK already retried temporary errors MAX_RETRIES times
+        raise AdapterError(f"{type(e).__name__}: {e}") from e
     block = resp.content[0] if resp.content else None
     text = block.text if block is not None and hasattr(block, "text") else ""
     return text, resp.usage.output_tokens, cfg["model"]
@@ -58,11 +66,17 @@ def call_claude(client, item, cfg):
 
 # Call an open-source model over OpenRouter (OpenAI-compatible request shape).
 def call_opensource(client, item, cfg):
-    resp = client.chat.completions.create(
-        model=cfg["model"], max_tokens=cfg["max_tokens"], temperature=cfg["temperature"],
-        messages=[{"role": "system", "content": cfg["system_prompt"]},
-                  {"role": "user", "content": item["prompt"]}],
-    )
+    import openai
+    try:
+        resp = client.chat.completions.create(
+            model=cfg["model"], max_tokens=cfg["max_tokens"], temperature=cfg["temperature"],
+            messages=[{"role": "system", "content": cfg["system_prompt"]},
+                      {"role": "user", "content": item["prompt"]}],
+        )
+    except (openai.AuthenticationError, openai.PermissionDeniedError) as e:
+        raise SystemExit(f"OpenRouter rejected the API key, so every task would fail: {e}")
+    except openai.APIError as e:  # the SDK already retried temporary errors MAX_RETRIES times
+        raise AdapterError(f"{type(e).__name__}: {e}") from e
     text = resp.choices[0].message.content or ""
     tokens = resp.usage.completion_tokens if resp.usage else None
     return text, tokens, resp.model  # resp.model: "openrouter/free" auto-routes, record what actually answered
@@ -83,6 +97,7 @@ def call_panacea(client, item, cfg):
     with tempfile.TemporaryDirectory() as empty_dir:  # prompt-only: the agent's file tools see nothing
         out = _to_text(client(item["prompt"], cwd=empty_dir))
     # run_coding_agent swallows every exception and returns it as a string, so check for it.
+    # Not retried here: its ChatAnthropic already retried temporary errors MAX_RETRIES times.
     if out.startswith("Agent error:"):
         raise AdapterError(out[:300])
     return out, None, cfg["model"]  # the function does not expose token usage
@@ -99,13 +114,13 @@ def call_reference(client, item, cfg):
 # Build the Anthropic client (imported here so the reference provider works without the anthropic package).
 def _anthropic_client(key):
     import anthropic
-    return anthropic.Anthropic(api_key=key)
+    return anthropic.Anthropic(api_key=key, max_retries=MAX_RETRIES)
 
 
 # Build the OpenRouter client (imported here so the other providers work without the openai package).
 def _openrouter_client(key):
     from openai import OpenAI  # OpenRouter speaks the OpenAI API format
-    return OpenAI(base_url="https://openrouter.ai/api/v1", api_key=key)
+    return OpenAI(base_url="https://openrouter.ai/api/v1", api_key=key, max_retries=MAX_RETRIES)
 
 
 # Import Panacea's run_coding_agent from the pinned clone and check we are on the pinned commit.
@@ -122,17 +137,20 @@ def _load_panacea(key):
                          f"Run: git -C {PANACEA_DIR} checkout {want}")
     os.environ["ANTHROPIC_API_KEY"] = key  # run_coding_agent reads the key from the environment
 
-    # run_coding_agent imports ChatAnthropic inside its body and never sets max_tokens (so LangChain's
-    # default of 1024 applies). Wrap the class it imports so it gets the shared cap. The clone is not edited.
+    # run_coding_agent imports ChatAnthropic inside its body and sets neither max_tokens nor temperature
+    # (so LangChain's 1024 tokens and the API's temperature 1.0 apply). Wrap the class it imports so it
+    # gets the shared settings. The clone is not edited.
     import langchain_anthropic
     chat_anthropic = langchain_anthropic.ChatAnthropic
-    cap = PROVIDERS["panacea"]["config"]["max_tokens"]
+    cfg = PROVIDERS["panacea"]["config"]
 
-    def capped_chat_anthropic(*args, **kwargs):
-        kwargs.setdefault("max_tokens", cap)
+    def shared_settings_chat_anthropic(*args, **kwargs):
+        kwargs.setdefault("max_tokens", cfg["max_tokens"])
+        kwargs.setdefault("temperature", cfg["temperature"])
+        kwargs.setdefault("max_retries", cfg["max_retries"])
         return chat_anthropic(*args, **kwargs)
 
-    langchain_anthropic.ChatAnthropic = capped_chat_anthropic
+    langchain_anthropic.ChatAnthropic = shared_settings_chat_anthropic
 
     sys.path.insert(0, str(backend))
     from agents.coding_agent import run_coding_agent
@@ -149,12 +167,13 @@ PROVIDERS = {
             "panacea_commit": "bea399509efbab4ac242042b64f8b28b8865691e",  # main as of 2026-09-15
             "model": "claude-sonnet-4-6",           # Panacea's DEFAULT_MODEL / coding agent model
             "system_prompt": "You are an expert coding assistant.",  # coding_agent.py
-            "max_tokens": MAX_TOKENS,               # shared with every arm (see MAX_TOKENS above)
-            "temperature": 0,                       # not set in Panacea; pinned here for reproducibility
+            "max_tokens": MAX_TOKENS,               # shared with every arm (see above)
+            "temperature": TEMPERATURE,             # shared with every arm (see above)
+            "max_retries": MAX_RETRIES,             # shared with every arm (see above)
         },
         "api_key_env": "ANTHROPIC_API_KEY",
         "output_file": "baseline_run.json",
-        "default_n": 5,
+        "default_n": 3,  # same default for every provider, so runs line up
         "client_factory": _anthropic_client,
         "call": call_claude,
     },
@@ -166,7 +185,8 @@ PROVIDERS = {
             "model": "openrouter/free",
             "system_prompt": "You are an expert coding assistant.",  # same prompt, for a fair comparison
             "max_tokens": MAX_TOKENS,
-            "temperature": 0,
+            "temperature": TEMPERATURE,
+            "max_retries": MAX_RETRIES,
         },
         "api_key_env": "OPENROUTER_API_KEY",
         "output_file": "opensource_run.json",
@@ -183,8 +203,11 @@ PROVIDERS = {
             "system_prompt": "You are an expert coding assistant.",  # hardcoded inside run_coding_agent
             "tools": ["read_file", "list_files"],
             "max_iterations": 5,
-            "max_tokens": MAX_TOKENS,               # stock Panacea uses LangChain's 1024; set at load time (_load_panacea)
-            "temperature": "not set (Anthropic API default)",  # Panacea does not expose it; see panacea_config.md section 7
+            # Stock Panacea sets none of these (LangChain's 1024 tokens, the API's temperature 1.0).
+            # We set them at load time (_load_panacea), a flagged deviation; see panacea_config.md.
+            "max_tokens": MAX_TOKENS,
+            "temperature": TEMPERATURE,
+            "max_retries": MAX_RETRIES,
         },
         "api_key_env": "ANTHROPIC_API_KEY",
         "output_file": "panacea_run.json",
@@ -196,7 +219,7 @@ PROVIDERS = {
         "config": {"note": "returns each item's reference solution; pipeline sanity check, no API"},
         "api_key_env": None,
         "output_file": "reference_run.json",
-        "default_n": 5,
+        "default_n": 3,
         "client_factory": lambda key: None,
         "call": call_reference,
     },

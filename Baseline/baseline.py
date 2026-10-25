@@ -23,11 +23,21 @@ Usage (run from the repo root, not from inside Baseline/):
     python Baseline/baseline.py reference 5              # no API: sanity-checks the pipeline, expect 1.0
 
     python Baseline/baseline.py claude 5 --level all     # basic, detailed and extreme prompts
+    python Baseline/baseline.py claude --ids smoke.txt   # exactly the tasks in data/unified/task_lists/smoke.txt
+    python Baseline/baseline.py claude 2 --source mbpp   # 2 MBPP tasks only
 
 Options:
+    n        problems per dataset, first n in file order (default 3 for every provider)
     --level  raw | basic | detailed | extreme | all   (default raw = the dataset's own prompt)
     --task   code_generation                          (bug_fixing / all commented out until
                                                        the bug-fix experiments start)
+    --source only this dataset (repeat for several)
+    --ids    a task list from data/unified/task_lists/; every arm run from the same list gets the
+             same tasks. Not combined with n or --source.
+
+The run file is rewritten after every item, so an error or Ctrl-C keeps the finished ones.
+API errors left after the SDK's own retries count as a failed run (score 0), and pass@1 is
+reported both with and without failed runs.
 
 Setup:
     pip install -r requirements.txt
@@ -49,15 +59,18 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from Evaluator.evaluator import evaluate, load_items, summarize
-from AI_models.prompts import ALL_LEVELS, LEVELS, build_prompt
-from AI_models.providers import PROVIDERS, AdapterError
-
+# Load .env before importing providers.py, which reads PANACEA_PATH when it is imported.
 try:
     from dotenv import load_dotenv
     load_dotenv(REPO_ROOT / ".env")  # .env lives at the repo root, not in Baseline/
 except ImportError:  # python-dotenv not installed: fall back to the shell environment
     pass
+
+from Evaluator.evaluator import evaluate, load_items, summarize
+from AI_models.prompts import ALL_LEVELS, LEVELS, build_prompt
+from AI_models.providers import PROVIDERS, AdapterError
+
+TASK_LISTS_DIR = REPO_ROOT / "data" / "unified" / "task_lists"  # shared task-id lists, one id per line
 
 
 # =====================================================================
@@ -88,22 +101,57 @@ def run_one(provider_name: str, client, item: dict, level: str = "raw") -> dict:
 
 
 # Run every item one at a time (simplest, and keeps rate limits predictable).
-def run_all(provider_name: str, client, items: list, level: str = "raw") -> list:
+# `save` is called after every item, so a crash or Ctrl-C keeps the finished ones.
+def run_all(provider_name: str, client, items: list, level: str = "raw", save=None) -> list:
     results = []
     for i, it in enumerate(items, 1):
         r = run_one(provider_name, client, it, level)
         print(f"  [{level}] {i}/{len(items)} {r['id']}: score={r['score']}", file=sys.stderr)
         results.append(r)
+        if save:
+            save(results)
     return results
 
 
 # Break the summary down by task type too, since code generation and bug fixing are compared separately.
+# pass@1 is reported both with failed runs (counted as 0) and without them.
 def summarize_run(results: list) -> dict:
     summary = summarize(results)
     for tt in sorted({r["task_type"] for r in results}):
         summary[tt] = summarize([r for r in results if r["task_type"] == tt])["overall"]
     summary["failed_runs"] = sum(1 for r in results if r.get("failed_run"))
+    summary["excluding_failed_runs"] = summarize([r for r in results if not r.get("failed_run")])["overall"]
     return summary
+
+
+# Write the run file through a temp file, so an interrupted write never leaves a half-written file.
+def write_run(out_path: Path, run: dict):
+    tmp = out_path.with_name(out_path.name + ".tmp")  # *_run.json.tmp, git-ignored
+    with open(tmp, "w") as f:
+        json.dump(run, f, indent=2)
+    os.replace(tmp, out_path)
+
+
+# Read a shared task list (one id per line, # comments allowed) from data/unified/task_lists/.
+def read_task_list(name: str) -> list:
+    path = Path(name)
+    if not path.exists():
+        path = TASK_LISTS_DIR / name
+    if not path.exists():
+        sys.exit(f"Task list {name} not found (looked in {TASK_LISTS_DIR}).")
+    ids = [line.split("#")[0].strip() for line in path.read_text().splitlines()]
+    return [i for i in ids if i]
+
+
+# Keep exactly the tasks in `ids`, in the list's order. Stops if any id is missing or can't be scored yet,
+# so every arm run from the same list gets the same tasks.
+def select_ids(items: list, ids: list) -> list:
+    by_id = {it["id"]: it for it in items}
+    missing = [i for i in ids if i not in by_id]
+    if missing:
+        sys.exit(f"{len(missing)} id(s) in the task list are not in the dataset or can't be scored yet: "
+                 f"{', '.join(missing)}")
+    return [by_id[i] for i in ids]
 
 
 # Output file name: baseline_run.json for raw, baseline_<level>_run.json otherwise
@@ -122,12 +170,16 @@ def main():
     ap.add_argument("--level", default="raw", choices=list(ALL_LEVELS) + ["all"])
     # Bug fixing is commented out until the bug-fix experiments (secondary set).
     ap.add_argument("--task", default="code_generation", choices=["code_generation"])  # , "bug_fixing", "all"
+    ap.add_argument("--source", action="append", help="only this dataset, e.g. mbpp (repeat for several)")
+    ap.add_argument("--ids", help="task list in data/unified/task_lists/ (e.g. smoke.txt); not combined with n or --source")
     args = ap.parse_args()
+    if args.ids and (args.n is not None or args.source):
+        ap.error("--ids picks the exact tasks, so it can't be combined with n or --source")
 
     provider_name = args.provider
     p = PROVIDERS[provider_name]
-    # n = tasks per dataset (first n in file order, so runs are reproducible)
-    n = args.n if args.n is not None else p["default_n"]
+    # n = tasks per dataset (first n in file order, so runs are reproducible); not used with --ids
+    n = None if args.ids else (args.n if args.n is not None else p["default_n"])
     levels = list(LEVELS) if args.level == "all" else [args.level]
 
     # Fail fast with a clear message instead of a raw error.
@@ -137,26 +189,31 @@ def main():
         if not api_key:
             sys.exit(f"{p['api_key_env']} not set. Copy .env.example to .env and fill it in.")
 
-    client = p["client_factory"](api_key)
-    # "all" keeps every task type; the evaluator skips items it cannot score yet (and says so on stderr)
-    items = load_items(task_type=None if args.task == "all" else args.task, n_per_source=n)
+    # The evaluator skips items it cannot score yet (and says so on stderr).
+    # Bug fixing commented out: task_type=None if args.task == "all" else args.task
+    items = load_items(task_type=args.task, sources=args.source, n_per_source=n)
+    if args.ids:
+        items = select_ids(items, read_task_list(args.ids))
     if not items:
-        sys.exit("No items to run (check --task).")
+        sys.exit("No items to run (check --task / --source).")
+
+    client = p["client_factory"](api_key)
     print(f"{provider_name}: {len(items)} items x {len(levels)} level(s): {', '.join(levels)}", file=sys.stderr)
 
     for level in levels:
-        results = run_all(provider_name, client, items, level)
-        summary = summarize_run(results)
-
         # Save the output file at the repo root (not inside Baseline/), so it
-        # sits next to .env / requirements.txt like before.
+        # sits next to .env / requirements.txt like before. Rewritten after every item.
         out_path = REPO_ROOT / output_name(p["output_file"], level)
-        with open(out_path, "w") as f:
-            json.dump({"provider": provider_name, "prompt_level": level, "task": args.task,
-                       "n_per_dataset": n, "config": p["config"], "summary": summary,
-                       "results": results}, f, indent=2)
+
+        def save(results, level=level, out_path=out_path):
+            write_run(out_path, {"provider": provider_name, "prompt_level": level, "task": args.task,
+                                 "n_per_dataset": n, "sources": args.source, "ids_file": args.ids,
+                                 "config": p["config"], "summary": summarize_run(results),
+                                 "results": results})
+
+        results = run_all(provider_name, client, items, level, save=save)
         print(f"\n== {provider_name} / {level} -> {out_path.name}")
-        print(json.dumps(summary, indent=2))
+        print(json.dumps(summarize_run(results), indent=2))
 
 
 if __name__ == "__main__":

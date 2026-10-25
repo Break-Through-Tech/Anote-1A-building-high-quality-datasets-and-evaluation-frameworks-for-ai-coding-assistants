@@ -1,4 +1,5 @@
-anthropic
+anthropic>=0.40,<1  # 1.x drops the temperature argument; 2.x's API version rejects temperature (revisit with the experiment model)
 datasets
 python-dotenv
 openai
+numpy  # some MBPP hidden tests import it (e.g. mbpp-622)

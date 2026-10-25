@@ -1,0 +1,7 @@
+# Smoke run of 2026-10-21 (runs/2026-10-21_smoke_run.md): the first 5 MBPP tasks.
+# One task id per line. Run every arm from the same list: python Baseline/baseline.py <provider> --ids smoke.txt
+mbpp-603
+mbpp-622
+mbpp-637
+mbpp-720
+mbpp-741
