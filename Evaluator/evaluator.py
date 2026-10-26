@@ -27,6 +27,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import textwrap
 import warnings
 from collections import Counter
 from pathlib import Path
@@ -44,22 +45,33 @@ PYTHON_TEST_FORMATS = {"assert_list", "check_fn", "test_functions"}
 IO_TEST_FORMATS = {"functional_io", "stdin_io"}
 SCORABLE_FORMATS = PYTHON_TEST_FORMATS | IO_TEST_FORMATS
 SPLITS = {"public": "public", "private": "private", "hidden": "private"}  # "hidden" is an alias
+SCORING_VERSION = 2       # written into run files; bump when scoring changes so old and new runs aren't compared
+# Environment variables whose names contain these are not passed to the code under test (API keys from .env).
+SECRET_ENV_MARKERS = ("KEY", "TOKEN", "SECRET")
 
 # LiveCodeBench starter code uses List, Optional, defaultdict, ... without importing them.
-# LiveCodeBench's own grader adds the same kind of header, so we do too (LiveCodeBench items only).
-LCB_HEADER = ("from typing import *\nfrom collections import *\nfrom functools import *\n"
-              "from itertools import *\nfrom heapq import *\nfrom bisect import *\n"
-              "import math, string, re, sys, heapq, bisect, itertools, functools, collections\n"
-              "sys.setrecursionlimit(10**6)\n")
+# This is LiveCodeBench's own header, copied exactly (import_string in
+# lcb_runner/evaluation/testing_util.py), so code that relies on it (inf, gcd, deepcopy, ...)
+# scores the same here as there. LiveCodeBench items only.
+LCB_HEADER = ("from string import *\nfrom re import *\nfrom datetime import *\nfrom collections import *\n"
+              "from heapq import *\nfrom bisect import *\nfrom copy import *\nfrom math import *\n"
+              "from random import *\nfrom statistics import *\nfrom itertools import *\nfrom functools import *\n"
+              "from operator import *\nfrom io import *\nfrom sys import *\nfrom json import *\n"
+              "from builtins import *\nfrom typing import *\nimport string\nimport re\nimport datetime\n"
+              "import collections\nimport heapq\nimport bisect\nimport copy\nimport math\nimport random\n"
+              "import statistics\nimport itertools\nimport functools\nimport operator\nimport io\nimport sys\n"
+              "import json\nsys.setrecursionlimit(50000)\n")
 
-# 5-level rubric (proposed; confirm with the team). Computed from the test results:
+# 5-level rubric. Computed from the test results; `level` names it (see level_name).
+# With no test passed, the first failing test decides between 0 and 1 (see failure_type).
 RUBRIC = {
-    0: "no valid code (empty, or a syntax error)",
-    1: "valid code, passes no tests (crash, timeout or wrong answers)",
-    2: "passes some tests (under half)",
-    3: "passes most tests (half or more, not all)",
-    4: "passes every test",
+    0: "no valid code/Error (empty, syntax error, crash, timeout, load_error etc)",  # Error, or Timeout
+    1: "valid code, but passes no tests",                                          # Wrong
+    2: "passes some tests (under half)",                                           # Partial Pass
+    3: "passes most tests (half or more, not all)",                                # Mostly Pass
+    4: "passes every test",                                                        # Pass
 }
+LEVEL_NAMES = {0: "Error", 1: "Wrong", 2: "Partial Pass", 3: "Mostly Pass", 4: "Pass"}
 
 
 # =====================================================================
@@ -174,10 +186,10 @@ def from_humaneval(row: dict) -> dict:
 # GETTING THE CODE OUT OF A MODEL RESPONSE
 # =====================================================================
 
-# A complete ```python ... ``` fenced block, if the model wrapped its answer in one.
-_CODE_BLOCK = re.compile(r"```(?:python|py|python3)?[ \t]*\n(.*?)```", re.DOTALL | re.IGNORECASE)
-# An opening fence with no closing one (the answer was cut off by max_tokens).
-_OPEN_FENCE = re.compile(r"```(?:python|py|python3)?[ \t]*\n(.*)$", re.DOTALL | re.IGNORECASE)
+# An opening fence line: ``` plus an optional tag (```python, ```bash, ```text, ...).
+_FENCE = re.compile(r"^\s*```\s*([\w+#.-]*)")
+# Tags that mean Python ("" = untagged block).
+_PYTHON_TAGS = {"", "python", "py", "python3", "py3"}
 # Where code starts in an unfenced answer that opens with prose.
 _CODE_START = re.compile(r"^(?:def |class |import |from |@|if __name__)", re.MULTILINE)
 
@@ -192,18 +204,40 @@ def _parses(code: str) -> bool:
         return False
 
 
+# Split a response into its fenced blocks, pairing opening and closing fences line by line, so a
+# ```bash or ```text block is skipped as a whole instead of its closing fence opening a "code" block.
+def _fenced_blocks(text: str) -> list:
+    """(tag, code, closed) per block; closed is False for a block cut off before its closing fence."""
+    blocks, tag, lines = [], None, []
+    for line in text.splitlines():
+        if tag is None:
+            m = _FENCE.match(line)
+            if m:
+                tag, lines = m.group(1).lower(), []
+        elif line.strip() == "```":
+            blocks.append((tag, textwrap.dedent("\n".join(lines)).strip(), True))
+            tag = None
+        else:
+            lines.append(line)
+    if tag is not None:
+        blocks.append((tag, textwrap.dedent("\n".join(lines)).strip(), False))
+    return blocks
+
+
 # Pull the actual code out of a model response.
 def extract_code(text: str, entry_point: str = None) -> str:
     """
-    1. Complete fenced blocks: the first one that defines `entry_point` (or class Solution),
-       else the first block. Models often put the solution first and example usage after.
-    2. A fence that was opened but never closed (truncated answer): everything after it,
+    1. Complete Python fenced blocks (```python, ```py, ```python3, or untagged; other tags such as
+       ```bash are skipped): the first one that defines `entry_point` (or class Solution), else the
+       first block. Models often put the solution first and example usage after.
+    2. A Python fence that was opened but never closed (truncated answer): everything after it,
        minus a half-written last line if that is what breaks parsing.
     3. No fence: the raw text, or, if it doesn't parse, the text from the first line that
        looks like code (def / class / import / from / @).
     """
     text = text or ""
-    blocks = [b.strip() for b in _CODE_BLOCK.findall(text)]
+    fenced = [(code, closed) for tag, code, closed in _fenced_blocks(text) if tag in _PYTHON_TAGS]
+    blocks = [code for code, closed in fenced if closed]
     if blocks:
         if entry_point:
             for b in blocks:
@@ -213,9 +247,8 @@ def extract_code(text: str, entry_point: str = None) -> str:
             if "class Solution" in b:
                 return b
         return blocks[0]
-    m = _OPEN_FENCE.search(text)
-    if m:
-        code = m.group(1).rstrip()
+    if fenced:  # only an unclosed block (at most one, at the end)
+        code = fenced[-1][0]
         if not _parses(code) and "\n" in code:
             trimmed = code.rsplit("\n", 1)[0].rstrip()  # drop the line that was cut mid-way
             if _parses(trimmed):
@@ -435,6 +468,14 @@ def outputs_match(actual: str, expected: str) -> bool:
     return True
 
 
+# Environment for the code under test: ours minus anything that looks like a secret (the API keys
+# loaded from .env), since the code is whatever the model wrote.
+def _test_env() -> dict:
+    env = {k: v for k, v in os.environ.items() if not any(s in k.upper() for s in SECRET_ENV_MARKERS)}
+    env["EVAL_MAXC"] = str(MAX_FIELD_CHARS)
+    return env
+
+
 def _run_stdin_tests(code: str, tests: list, header: str, per_test: float) -> dict:
     details = []
     with tempfile.TemporaryDirectory() as d:
@@ -443,7 +484,7 @@ def _run_stdin_tests(code: str, tests: list, header: str, per_test: float) -> di
         open(runner, "w").write(_STDIN_RUNNER)
         if header:
             open(hdr, "w").write(header)
-        env = {**os.environ, "EVAL_MAXC": str(MAX_FIELD_CHARS)}
+        env = _test_env()
         for i, t in enumerate(tests):
             rec = {"i": i, "status": "runtime_error", "test": _test_text(t),
                    "expected": _short(t["output"]), "actual": None, "error": None}
@@ -478,10 +519,11 @@ def _run_harness(code: str, tests: list, mode: str, entry: str, header: str, per
         budget = min(MAX_TOTAL_TIMEOUT_S, TIMEOUT_S + per_test * max(1, len(tests)) + 5)
         killed = False
         try:
+            # stdin=DEVNULL: a stray input() fails at once instead of waiting for the per-test timeout.
             subprocess.run([sys.executable, "-I", harness, cand, tst, out, mode, entry or "", str(per_test),
                             str(TIMEOUT_S), hdr if header else "-"],
-                           capture_output=True, text=True, timeout=budget, cwd=d,
-                           env={**os.environ, "EVAL_MAXC": str(MAX_FIELD_CHARS)})
+                           stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=budget, cwd=d,
+                           env=_test_env())
         except subprocess.TimeoutExpired:
             killed = True
         lines = []
@@ -541,14 +583,22 @@ def run_tests(code: str, tests: list, test_format: str = "assert_list", entry_po
 # SCORING
 # =====================================================================
 
-def rubric_level(syntax_ok: bool, n_passed: int, n_tests: int) -> int:
+def rubric_level(syntax_ok: bool, n_passed: int, n_tests: int, failure: str = None) -> int:
+    """`failure` is failure_type(): with no test passed, a crash, timeout or load error is 0, a wrong answer 1."""
     if not syntax_ok:
         return 0
     if n_tests == 0 or n_passed == 0:
-        return 1
+        return 0 if failure in ("load_error", "runtime_error", "timeout") else 1
     if n_passed == n_tests:
         return 4
     return 3 if n_passed / n_tests >= 0.5 else 2
+
+
+# The rubric level's name (LEVEL_NAMES); level 0 is "Timeout" when the first failing test timed out.
+def level_name(level: int, failure: str = None):
+    if level == 0 and failure == "timeout":
+        return "Timeout"
+    return LEVEL_NAMES.get(level)
 
 
 # Why the attempt failed, for failure analysis: no_code / syntax_error / load_error (crashes on import),
@@ -571,6 +621,7 @@ def evaluate(item: dict, output: str, latency_s: float = None, output_tokens: in
     score          = pass@1: 1.0 if every test passes, else 0.0  (primary metric)
     test_pass_rate = fraction of individual tests passed          (partial credit, diagnostic)
     rubric_level   = 0-4, see RUBRIC                               (graded score)
+    level          = its name: Error / Timeout (0), Wrong (1), Partial Pass (2), Mostly Pass (3), Pass (4)
     syntax_ok      = the extracted code parses as Python
     failure_type   = None if it passed, else no_code | syntax_error | load_error | wrong_answer |
                      runtime_error | timeout
@@ -585,8 +636,8 @@ def evaluate(item: dict, output: str, latency_s: float = None, output_tokens: in
             "latency_s": latency_s, "output_tokens": output_tokens}
     if fmt not in SCORABLE_FORMATS:
         # Don't report a fake 0.0: summarize() skips None when averaging.
-        return {**base, "score": None, "test_pass_rate": None, "rubric_level": None, "syntax_ok": None,
-                "failure_type": None, "n_tests": 0, "n_passed": 0, "details": [],
+        return {**base, "score": None, "test_pass_rate": None, "rubric_level": None, "level": None,
+                "syntax_ok": None, "failure_type": None, "n_tests": 0, "n_passed": 0, "details": [],
                 "error": f"no test runner for test_format={fmt!r} yet"}
     tests = get_tests(item, split)
     code = extract_code(output, item.get("entry_point"))
@@ -599,12 +650,15 @@ def evaluate(item: dict, output: str, latency_s: float = None, output_tokens: in
         details = [{"i": i, "status": "load_error", "test": _test_text(t), "expected": None, "actual": None,
                     "error": error} for i, t in enumerate(tests)]
     n, passed = len(tests), sum(d["status"] == "pass" for d in details)
+    failure = failure_type(syntax_ok, code, details)
+    level = rubric_level(syntax_ok, passed, n, failure)
     return {**base,
             "score": 1.0 if n and passed == n else 0.0,
             "test_pass_rate": passed / n if n else 0.0,
-            "rubric_level": rubric_level(syntax_ok, passed, n),
+            "rubric_level": level,
+            "level": level_name(level, failure),
             "syntax_ok": syntax_ok,
-            "failure_type": failure_type(syntax_ok, code, details),
+            "failure_type": failure,
             "n_tests": n, "n_passed": passed,
             "passed_tests": [d["i"] for d in details if d["status"] == "pass"],
             "details": details if keep_details else [],
@@ -669,7 +723,8 @@ def summarize(results: list) -> dict:
             return round(sum(v) / len(v), 3) if v else None
         return {"n": len(rs), "pass@1": mean("score"), "test_pass_rate": mean("test_pass_rate"),
                 "rubric_level": mean("rubric_level"), "latency_s": mean("latency_s"),
-                "output_tokens": mean("output_tokens")}
+                "output_tokens": mean("output_tokens"),
+                "levels": dict(Counter(r["level"] for r in rs if r.get("level")))}  # answers per level name
     out = {"overall": agg(results)}
     for src in sorted({r["source"] for r in results}):
         out[src] = agg([r for r in results if r["source"] == src])

@@ -55,6 +55,27 @@ Private tests use the same `test_format` as the task's public tests, so one runn
 - **MBPP:** at least 5 private tests, the reference solution passes all of them, and a function that just returns `None` fails at least one. MBPP tasks that fail these checks stay in the pool.
 - **LiveCodeBench:** at least 5 private tests (hard tasks are exempt, because LiveCodeBench ships only a few for some hard problems), and every test has an input and an output string. LiveCodeBench ships no reference solutions, so there is no reference or `None`-stub check.
 
+## Scoring
+
+`Evaluator/evaluator.py` scores every `test_format`, so all 100 code-generation tasks are scorable.
+
+- **Runners.** `assert_list` / `check_fn` / `test_functions`: the tests run as Python against the code. `functional_io` (LiveCodeBench, LeetCode style): calls `Solution().<entry_point>(*args)`, one JSON argument per input line, and falls back to a top-level function with that name. `stdin_io` (LiveCodeBench, AtCoder style): runs the program with the input on stdin and compares stdout line by line, ignoring surrounding whitespace.
+- **LiveCodeBench import header.** LiveCodeBench tasks get LiveCodeBench's own import header (copied exactly), so code that uses `List`, `inf`, `gcd`, ... without importing them scores as it would on LiveCodeBench. MBPP and bug-fix tasks get no header.
+- **Time limits.** 6 s per test, 10 s to load the code, and at most 90 s per answer. The per-test limit uses a Unix signal, so score on macOS, Linux or Colab, not Windows.
+- **Isolation.** The code under test runs in a subprocess with stdin closed (a stray `input()` fails at once) and without environment variables whose names contain `KEY`, `TOKEN` or `SECRET`. It is still not a security sandbox.
+- **Hidden tests are the headline.** `evaluate(item, output, split="private")` scores on the hidden tests, and `split="public"` (the default) on the public ones. `Baseline/baseline.py` scores every answer on both: the headline pass@1 is hidden, public pass@1 sits beside it, and a **false pass** is an answer that passes the public tests but fails the hidden ones. Run files keep full details for public tests only; hidden results are counts, so no hidden test text is stored. Run files also record `scoring_version` (now 2), and `compare_runs.py` refuses to compare runs scored by different versions.
+- **Rubric levels.** Every result has `rubric_level` (0–4), its name `level`, and `failure_type` (`no_code`, `syntax_error`, `load_error`, `runtime_error`, `timeout`, `wrong_answer`; the first failing test decides).
+
+| `rubric_level` | `level` | Meaning |
+|---|---|---|
+| 4 | Pass | Passes every test |
+| 3 | Mostly Pass | Passes half or more, not all |
+| 2 | Partial Pass | Passes some, under half |
+| 1 | Wrong | Valid code, passes no test, and the first failing test is a wrong answer |
+| 0 | Error, or Timeout | No valid code (empty, syntax error), or no test passes and the first failure is a crash, a load error or a timeout (named Timeout) |
+
+**Check that scoring and the pipeline work:** `python Evaluator/self_test.py` (about 10 s, no API calls, no files written). It tests every format, extraction, the levels, the header and the subprocess isolation. It checks that the hand-written LiveCodeBench solutions in `Evaluator/fixtures.json` and every MBPP reference pass their public and hidden tests. It also runs the no-API `reference` provider through `baseline.py` and `compare_runs.py`. Run it after any change to the evaluator, prompts or baseline.
+
 ## Row schema
 
 Every row in the `*_eval.jsonl`, `unified_eval.jsonl` and `unified_pool.jsonl` files has the same fields (from `Evaluator/evaluator.py`):
@@ -89,6 +110,6 @@ code_gen = code_gen.merge(private, on="id")   # every code-gen row gets its priv
 ## Rules
 
 - Only `prompt` goes to the model. Never `metadata`, `reference`, or private tests.
-- Every arm (baseline, our pipeline, Panacea) runs on exactly the same `unified_eval.jsonl` tasks and prompts: run them all from the same `task_lists/` file. `Baseline/compare_runs.py` refuses to compare runs that covered different tasks.
+- Every arm (baseline, our pipeline, Panacea) runs on exactly the same `unified_eval.jsonl` tasks and prompts: run them all from the same `task_lists/` file. `Baseline/compare_runs.py` refuses to compare runs that covered different tasks or were scored by different `scoring_version`s.
 - The pool never overlaps the evaluation set (the unified notebook checks this), so few-shot examples can't leak answers.
 - Report results per `source`. One file doesn't mean one pooled score.
