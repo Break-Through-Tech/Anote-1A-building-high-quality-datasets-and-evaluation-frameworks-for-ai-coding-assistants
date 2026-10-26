@@ -1,6 +1,6 @@
 # Panacea comparison target (Task #6, DRAFT for team review)
 
-Status: based on a read-only pass over the code. Nothing has been installed or run yet, so the install and run steps below are untested.
+Status: based on a read-only pass over the code, then verified. The install and one live call (the Fibonacci smoke test in section 4) worked on 2026-10-19 (Python 3.9.6). A 5-task smoke run on the Claude baseline and Panacea followed on 2026-10-21 (see `runs/2026-10-21_smoke_run.md`).
 
 Panacea repo: https://github.com/anote-ai/Autonomous-Intelligence
 Commit inspected: `bea399509efbab4ac242042b64f8b28b8865691e` (2026-09-15). This is the same commit `Baseline/BASELINE.md` already pins.
@@ -80,7 +80,7 @@ Optional second config if the advisor wants a "product" view: B, the `anote` CLI
 
 ---
 
-## 4. Exact install and run steps (untested)
+## 4. Exact install and run steps (install and live call verified 2026-10-19; smoke run 2026-10-21)
 
 ```bash
 # 1. Get Panacea at the pinned commit (from the team repo root)
@@ -103,8 +103,10 @@ sys.path.insert(0, "panacea/packages/backend")
 from agents.coding_agent import run_coding_agent
 
 out = run_coding_agent("Write a Python function that returns the nth Fibonacci number.", cwd=".")
-assert not out.startswith("Agent error:"), out   # errors are returned as strings
-print(out)
+# With the pinned versions the output is a list of content blocks, not a string: flatten it to text first.
+text = out if isinstance(out, str) else "".join(b if isinstance(b, str) else b.get("text", "") for b in out)
+assert not text.startswith("Agent error:"), text   # errors are returned as strings
+print(text)
 PY
 ```
 
@@ -112,6 +114,7 @@ Notes:
 - `sys.path.insert(0, ...)` is needed because `agents` is a top-level package under `packages/backend/`.
 - If step 2 fails on a pin conflict, fall back to `pip install -r panacea/packages/backend/requirements.txt` in a fresh venv. That needs build tools for `mysql-connector-python` and `PyMuPDF`.
 - Do **not** run `docker compose up`. It is not needed for this config.
+- If the path to the repo contains a colon (for example `Documents:Anote`), `source .venv-panacea/bin/activate` breaks `PATH`. Call `.venv-panacea/bin/python` directly instead.
 
 ---
 
