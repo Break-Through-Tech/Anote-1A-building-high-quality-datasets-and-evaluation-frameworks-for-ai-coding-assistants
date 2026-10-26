@@ -74,7 +74,13 @@ Private tests use the same `test_format` as the task's public tests, so one runn
 | 1 | Wrong | Valid code, passes no test, and the first failing test is a wrong answer |
 | 0 | Error, or Timeout | No valid code (empty, syntax error), or no test passes and the first failure is a crash, a load error or a timeout (named Timeout) |
 
-**Check that scoring and the pipeline work:** `python Evaluator/self_test.py` (about 10 s, no API calls, no files written). It tests every format, extraction, the levels, the header and the subprocess isolation. It checks that the hand-written LiveCodeBench solutions in `Evaluator/fixtures.json` and every MBPP reference pass their public and hidden tests. It also runs the no-API `reference` provider through `baseline.py` and `compare_runs.py`. Run it after any change to the evaluator, prompts or baseline.
+**Check that the data flows through scoring and the pipeline correctly:** `python Evaluator/self_test.py` (about 35 s, no API calls, no files written). It runs on the real code-generation tasks with their real public and hidden tests:
+- Every task's public and hidden tests are read (275 public + 988 hidden; the counts match the files and `metadata.num_private_tests`), and a do-nothing answer fails every task's hidden tests.
+- Every MBPP reference and the hand-written LiveCodeBench solutions in `Evaluator/fixtures.json` (LiveCodeBench ships no references) pass all their public and hidden tests.
+- It checks the formats, every rubric level, code extraction, the LiveCodeBench header, subprocess isolation and public-only feedback.
+- It runs answers through `baseline.py` (hidden headline, public beside it, failed runs, no hidden test text in results) and `compare_runs.py`.
+
+Hand-written parts are answers and edge cases only. Run it after any change to the data, the evaluator, the prompts or the baseline.
 
 ## Row schema
 

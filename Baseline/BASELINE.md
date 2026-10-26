@@ -45,7 +45,7 @@ python Baseline/baseline.py claude --ids smoke.txt
 ```
 Writes `baseline_run.json` with this config, per-item results, and pass@1 scores, rewritten after every task. Each provider has its own file (`panacea_run.json`, `opensource_run.json`, `reference_run.json`; `_<level>` is added for prompt levels other than `raw`). Run every arm from the same `--ids` task list (`data/unified/task_lists/`), then compare with `python Baseline/compare_runs.py`. Run files record `scoring_version` (now 2: hidden-test headline); `compare_runs` refuses to mix versions, so re-run any run file without `scoring_version` (those scored public tests only).
 
-Before spending API calls, check the pipeline with `python Evaluator/self_test.py` (about 10 s, no API, no files written).
+Before spending API calls, check that the data flows through scoring and the pipeline with `python Evaluator/self_test.py` (about 35 s on the real tasks and their public and hidden tests, no API, no files written).
 
 ## Status
 - [ ] Run on a small sample
