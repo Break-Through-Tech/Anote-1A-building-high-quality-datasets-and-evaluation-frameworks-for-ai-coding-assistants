@@ -295,19 +295,25 @@ def run_assert(t, rec):
         test = last.test
         if isinstance(test, ast.Compare) and len(test.ops) == 1:
             actual, expected = ev(test.left), ev(test.comparators[0])
-            rec["actual"], rec["expected"] = short(actual), short(expected)
+            rec["actual"], rec["expected"] = short(repr(actual)), short(repr(expected))
             ns["__a"], ns["__e"] = actual, expected
             cmp = ast.Compare(ast.Name("__a", ast.Load()), test.ops, [ast.Name("__e", ast.Load())])
             ok = ev(ast.fix_missing_locations(cmp))
         elif isinstance(test, ast.Call) and len(test.args) >= 2:   # np.allclose(f(x), y), math.isclose(...)
             actual, expected = ev(test.args[0]), ev(test.args[1])
-            rec["actual"], rec["expected"] = short(actual), short(expected)
+            rec["actual"], rec["expected"] = short(repr(actual)), short(repr(expected))
             ns["__a"], ns["__e"] = actual, expected
             call = ast.Call(test.func, [ast.Name("__a", ast.Load()), ast.Name("__e", ast.Load())] + test.args[2:],
                             test.keywords)
             ok = ev(ast.fix_missing_locations(ast.copy_location(call, test)))
-        else:
-            ok = ev(test)
+        elif isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):   # assert not f(x)
+            actual = ev(test.operand)
+            rec["actual"], rec["expected"] = short(repr(actual)), "a falsy value (e.g. False)"
+            ok = not actual
+        else:                                                                # assert f(x)
+            actual = ev(test)
+            rec["actual"], rec["expected"] = short(repr(actual)), "a truthy value (e.g. True)"
+            ok = bool(actual)
         if not ok:
             rec["status"], rec["error"] = "wrong_answer", "AssertionError"
             return
@@ -711,6 +717,11 @@ if __name__ == "__main__":
     assert d["status"] == "wrong_answer" and d["expected"] == "3" and d["actual"] == "-1", d
     assert r["failure_type"] == "wrong_answer" and r["rubric_level"] == 1, r
     assert "Expected: 3" in format_feedback(r) and "Got: -1" in format_feedback(r)
+    # Bare asserts (`assert f(x)` / `assert not f(x)`) still show what the code returned.
+    bare = {**mbpp, "tests": ["assert not add(1, 1)"]}
+    r = evaluate(bare, "def add(a, b):\n    return 'Even'")
+    assert r["details"][0]["actual"] == "'Even'" and "falsy" in r["details"][0]["expected"], r["details"][0]
+    assert "Got: 'Even'" in format_feedback(r)
     # Runtime error points at the line in the candidate's code.
     r = evaluate(mbpp, "def add(a, b):\n    x = [a]\n    return x[5]")
     assert r["details"][0]["status"] == "runtime_error" and "IndexError" in r["details"][0]["error"], r
