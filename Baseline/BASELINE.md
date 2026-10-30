@@ -34,7 +34,8 @@ Panacea gets all three at load time through a wrapper around `ChatAnthropic`: a 
 
 ## Scope
 - Task type: code generation only
-- Datasets: the code-generation tasks in `data/unified/unified_eval.jsonl` (MBPP 20, LiveCodeBench 80). LiveCodeBench is skipped until the evaluator has its I/O test runner.
+- Datasets: the code-generation tasks in `data/unified/unified_eval.jsonl` (MBPP 20, LiveCodeBench 80). All 100 are scorable.
+- Scoring: every answer is scored on the **hidden tests** (the headline pass@1) and on the public tests (public pass@1 beside it). An answer that passes the public tests but fails the hidden ones is counted as a **false pass**. Each result also carries the rubric level (`rubric_level` 0–4 and its name `level`) and `failure_type`; see `data/README.md`, "Scoring".
 
 ## Run it
 ```
@@ -42,7 +43,9 @@ pip install -r requirements.txt
 cp .env.example .env   # paste your ANTHROPIC_API_KEY
 python Baseline/baseline.py claude --ids smoke.txt
 ```
-Writes `baseline_run.json` with this config, per-item results, and pass@1 scores, rewritten after every task. Each provider has its own file (`panacea_run.json`, `opensource_run.json`, `reference_run.json`; `_<level>` is added for prompt levels other than `raw`). Run every arm from the same `--ids` task list (`data/unified/task_lists/`), then compare with `python Baseline/compare_runs.py`.
+Writes `baseline_run.json` with this config, per-item results, and pass@1 scores, rewritten after every task. Each provider has its own file (`panacea_run.json`, `opensource_run.json`, `reference_run.json`; `_<level>` is added for prompt levels other than `raw`). Run every arm from the same `--ids` task list (`data/unified/task_lists/`), then compare with `python Baseline/compare_runs.py`. Run files record `scoring_version` (now 2: hidden-test headline); `compare_runs` refuses to mix versions, so re-run any run file without `scoring_version` (those scored public tests only).
+
+Before spending API calls, check that the data flows through scoring and the pipeline with `python Evaluator/self_test.py` (about 35 s on the real tasks and their public and hidden tests, no API, no files written).
 
 ## Status
 - [ ] Run on a small sample

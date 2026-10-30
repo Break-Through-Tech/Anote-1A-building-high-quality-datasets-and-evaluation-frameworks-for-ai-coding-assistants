@@ -138,7 +138,7 @@ For the optional CLI config (B), `ANTHROPIC_API_KEY` must be set even when using
 - **Arm 1, zero-shot baseline.**
   - `Baseline/baseline.py claude` (already in the repo): `claude-sonnet-4-6` with the shared settings (`max_tokens` 4096, temperature 0.5, 2 SDK retries).
 - **Arm 2, our agentic pipeline.**
-  - Router, then task-specific prompt, then Evaluator-Optimizer retry loop.
+  - Evaluator-Optimizer retry loop: a zero-shot attempt 0, then retries with evaluator feedback (the research question's arms). The Router agent was dropped on 10/25.
   - Uses the same underlying model as arms 1 and 3, so gains come from orchestration and not from a stronger model.
 - **Arm 3, Panacea.**
   - Add a `call_panacea(client, item, cfg)` adapter in `AI_models/providers.py`, same `(text, tokens, model_used)` return shape as `call_claude`.
@@ -150,7 +150,7 @@ For the optional CLI config (B), `ANTHROPIC_API_KEY` must be set even when using
   - Different kind of arm (agentic CLIs with their own tools).
   - Run headless on the same prompt in an empty temp dir. Capture the final code only.
   - Label them as "agent products, not matched on model" in the report.
-- **Scoring.** All arms go through the same scorers: exact-match, AST-diff, CodeBLEU and static Pass@1 (via the MCP scoring server). Extract the code block from each output the same way for every arm.
+- **Scoring.** All arms go through the same scorer, `Evaluator/evaluator.py`: pass@1 on the hidden tests (headline), public pass@1, test pass rate and the rubric levels (see `data/README.md`, "Scoring"). The MCP scoring server was dropped on 10/25. Extract the code block from each output the same way for every arm.
 - **Fairness controls.**
   - Same prompts, same scorer, same code extraction.
   - Fixed Panacea commit.

@@ -2,7 +2,10 @@
 baseline.py
 
 Runs Task #4's baseline: sends problems from the unified dataset to a model,
-scores the results with evaluator.py, and writes a results file. This file is
+scores the results with evaluator.py, and writes a results file. Every answer is
+scored twice: on the hidden tests (the headline pass@1; the model never sees them)
+and on the public tests (pass@1 shown beside it). An answer that passes the public
+tests but fails the hidden ones is a "false pass". This file is
 just the shared framework (loading, prompting, scoring, output) - the actual
 per-provider API calls and config live in AI_models/providers.py, the prompt
 detail levels live in AI_models/prompts.py, and scoring lives in
@@ -37,7 +40,10 @@ Options:
 
 The run file is rewritten after every item, so an error or Ctrl-C keeps the finished ones.
 API errors left after the SDK's own retries count as a failed run (score 0), and pass@1 is
-reported both with and without failed runs.
+reported both with and without failed runs. Run files record the evaluator's scoring_version,
+and compare_runs.py refuses to compare runs scored by different versions.
+
+To check the whole pipeline without any API calls: python Evaluator/self_test.py
 
 Setup:
     pip install -r requirements.txt
@@ -50,6 +56,7 @@ import json
 import os
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 
 # This file lives in Baseline/, but Evaluator/ and AI_models/ are sibling
@@ -66,7 +73,7 @@ try:
 except ImportError:  # python-dotenv not installed: fall back to the shell environment
     pass
 
-from Evaluator.evaluator import evaluate, load_items, summarize
+from Evaluator.evaluator import SCORING_VERSION, evaluate, load_items, summarize
 from AI_models.prompts import ALL_LEVELS, LEVELS, build_prompt
 from AI_models.providers import PROVIDERS, AdapterError
 
@@ -77,6 +84,23 @@ TASK_LISTS_DIR = REPO_ROOT / "data" / "unified" / "task_lists"  # shared task-id
 # RUN + SCORE
 # =====================================================================
 
+# Score one answer on the hidden tests (the headline: the model never sees them) and on the public tests
+# (the ones feedback may show). Hidden results keep counts only, so no hidden test text lands in run files.
+# Tasks without hidden tests (bug fixing) are scored on their public tests, and say so in "scored_on".
+def score_both(item: dict, text: str, latency_s: float = None, output_tokens: int = None) -> dict:
+    public = evaluate(item, text, latency_s, output_tokens, split="public")
+    try:
+        hidden = evaluate(item, text, latency_s, output_tokens, split="private", keep_details=False)
+    except KeyError:  # no hidden tests for this task
+        return {**public, "scored_on": "public", "public": None, "false_pass": None}
+    if hidden["error"]:  # keep only the error's name: its message can quote a hidden input
+        hidden["error"] = hidden["error"].split(":")[0]
+    keep = ("score", "test_pass_rate", "rubric_level", "level", "failure_type", "n_tests", "n_passed",
+            "details", "error")
+    return {**hidden, "scored_on": "hidden", "public": {k: public[k] for k in keep},
+            "false_pass": public["score"] == 1.0 and hidden["score"] == 0.0}
+
+
 # Send one item's prompt (at the given detail level) through the chosen provider's adapter and score the reply.
 def run_one(provider_name: str, client, item: dict, level: str = "raw") -> dict:
     p = PROVIDERS[provider_name]
@@ -85,12 +109,14 @@ def run_one(provider_name: str, client, item: dict, level: str = "raw") -> dict:
     try:
         text, tokens, model_used = p["call"](client, {**item, "prompt": prompt}, p["config"])
     except AdapterError as e:
-        # The provider ran but gave no usable answer. Count it as a failed run, not model output.
-        result = evaluate(item, "", latency_s=round(time.time() - start, 2))
-        result.update(score=0.0, test_pass_rate=0.0, error=f"adapter_error: {e}", failed_run=True)
+        # The provider ran but gave no usable answer. Count it as a failed run (score 0 on both test sets),
+        # not model output, and leave it out of the rubric levels.
+        result = score_both(item, "", latency_s=round(time.time() - start, 2))
+        result.update(score=0.0, test_pass_rate=0.0, rubric_level=None, level=None,
+                      error=f"adapter_error: {e}", failed_run=True)
         text, model_used = "", None
     else:
-        result = evaluate(item, text, latency_s=round(time.time() - start, 2), output_tokens=tokens)
+        result = score_both(item, text, latency_s=round(time.time() - start, 2), output_tokens=tokens)
         result["failed_run"] = False
     result["task_type"] = item["task_type"]
     result["prompt_level"] = level
@@ -121,6 +147,12 @@ def summarize_run(results: list) -> dict:
         summary[tt] = summarize([r for r in results if r["task_type"] == tt])["overall"]
     summary["failed_runs"] = sum(1 for r in results if r.get("failed_run"))
     summary["excluding_failed_runs"] = summarize([r for r in results if not r.get("failed_run")])["overall"]
+    # Public pass@1 beside the hidden headline, and answers that pass public tests but fail hidden ones.
+    public = [(r.get("public") or r)["score"] for r in results]  # public-scored rows have no "public" block
+    public = [s for s in public if s is not None]
+    summary["public_pass@1"] = round(sum(public) / len(public), 3) if public else None
+    summary["false_passes"] = sum(1 for r in results if r.get("false_pass"))
+    summary["scored_on"] = dict(Counter(r.get("scored_on") for r in results))  # hidden, or public if no hidden tests
     return summary
 
 
@@ -206,7 +238,8 @@ def main():
         out_path = REPO_ROOT / output_name(p["output_file"], level)
 
         def save(results, level=level, out_path=out_path):
-            write_run(out_path, {"provider": provider_name, "prompt_level": level, "task": args.task,
+            write_run(out_path, {"scoring_version": SCORING_VERSION,
+                                 "provider": provider_name, "prompt_level": level, "task": args.task,
                                  "n_per_dataset": n, "sources": args.source, "ids_file": args.ids,
                                  "config": p["config"], "summary": summarize_run(results),
                                  "results": results})
