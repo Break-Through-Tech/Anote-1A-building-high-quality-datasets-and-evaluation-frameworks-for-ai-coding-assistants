@@ -18,7 +18,7 @@ draft for him to confirm or adjust, not a settled answer.
 - Commit: `bea399509efbab4ac242042b64f8b28b8865691e` (main, 2026-09-15)
 
 ## Model
-- `claude-sonnet-4-6` - Panacea's own default (`packages/web/src/constants/models.ts`, `DEFAULT_MODEL`)
+- `claude-sonnet-4-6` - Panacea's own default (`packages/web/src/constants/models.ts`, `DEFAULT_MODEL`), and the team's experiment model for every arm (decided 2026-11-03)
 
 ## Prompt
 - System prompt: "You are an expert coding assistant." (`packages/backend/agents/coding_agent.py`)
@@ -26,8 +26,8 @@ draft for him to confirm or adjust, not a settled answer.
 
 ## Decoding parameters
 Shared by every arm (Claude, Panacea, open-source), set once at the top of `AI_models/providers.py`. These are our settings, not Panacea's:
-- `max_tokens`: 4096 (`MAX_TOKENS`) - placeholder until the experiment model is chosen. Stock Panacea's coding agent sets none, so LangChain's 1024 applies there.
-- `temperature`: 0.5 (`TEMPERATURE`) - above 0 so the fresh-resample control arm actually resamples. Stock Panacea sets none (API default 1.0). Works only on SDK 0.x (API version `2023-06-01`, hence the pin in `requirements.txt`) and on models that still accept temperature, such as `claude-sonnet-4-6`; to be settled again with the experiment model.
+- `max_tokens`: 4096 (`MAX_TOKENS`). Stock Panacea's coding agent sets none, so LangChain's 1024 applies there.
+- `temperature`: 0.5 (`TEMPERATURE`) - above 0 so the fresh-resample control arm actually resamples. Stock Panacea sets none (API default 1.0). Works only on SDK 0.x (API version `2023-06-01`, hence the pin in `requirements.txt`) and on models that still accept temperature, such as `claude-sonnet-4-6`, the experiment model (decided 2026-11-03).
 - `max_retries`: 2 (`MAX_RETRIES`) - the SDK's own retries on temporary API errors. An error left after them is a failed run for that task, scored 0, and pass@1 is reported both with and without failed runs.
 
 Panacea gets all three at load time through a wrapper around `ChatAnthropic`: a flagged deviation from stock Panacea (see `panacea_config.md`).

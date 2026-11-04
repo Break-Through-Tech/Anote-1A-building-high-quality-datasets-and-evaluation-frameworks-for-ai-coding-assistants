@@ -167,7 +167,7 @@ For the optional CLI config (B), `ANTHROPIC_API_KEY` must be set even when using
    - Or the `anote` CLI, which is the fuller coding product but runs on the Claude Agent SDK, the same engine as Claude Code.
    - Or the multi-agent orchestrator in the legacy `backend/`, which is built for document Q&A, not code.
 2. **Is a near-baseline Panacea arm acceptable?** With a self-contained prompt and read-only file tools, we expect little difference from zero-shot.
-3. **Temperature and `max_tokens`. Decided by the team (2026-10-25):** we set both on Panacea at load time, to the values every arm shares (temperature 0.5, `max_tokens` 4096), and tell Natan in the next update. This deviates from stock Panacea. Temperature 0.5 needs a model that still accepts it (such as `claude-sonnet-4-6`); it is settled again when the experiment model is chosen.
+3. **Temperature and `max_tokens`. Decided by the team (2026-10-25):** we set both on Panacea at load time, to the values every arm shares (temperature 0.5, `max_tokens` 4096), and tell Natan in the next update. This deviates from stock Panacea. Temperature 0.5 needs a model that still accepts it; the experiment model, `claude-sonnet-4-6` (decided 2026-11-03), does.
 4. **Repo name.** `Baseline/BASELINE.md` links `anote-ai/Panacea`, but this task used `anote-ai/Autonomous-Intelligence`. The commit hash matches. Confirm which is the canonical repo.
 5. **Cost.** The Panacea arm needs a paid Anthropic key (a few cents per handful of tasks). Is there a team key, or should we use the OpenRouter free tier for the open-source arm only?
 6. **Static evaluation vs tools.** Panacea's agent can read files. Should we give it the task's repo files in `cwd`, or keep it prompt-only to match the baseline?

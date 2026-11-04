@@ -1,0 +1,14 @@
+# Pilot for the Evaluator-Optimizer loop (Optimizer/loop.py), 2026-11-03: 10 eval tasks, the first in file
+# order of each source / difficulty / test format group (not the first n: the first 49 LiveCodeBench rows
+# are all stdin_io). abc393_a and abc391_a are skipped (fewer than 5 distinct hidden tests).
+# Experiments use only the 100 code-generation tasks in unified_eval.jsonl (decided 2026-11-03); the pool is not used.
+mbpp-637                # mbpp medium assert_list
+mbpp-603                # mbpp hard assert_list
+mbpp-622                # mbpp hard assert_list
+livecodebench-abc387_b  # easy stdin_io
+livecodebench-3708      # easy functional_io
+livecodebench-abc387_c  # medium stdin_io
+livecodebench-3677      # medium functional_io
+livecodebench-abc387_f  # hard stdin_io
+livecodebench-abc388_e  # hard stdin_io
+livecodebench-3674      # hard functional_io

@@ -29,6 +29,13 @@
 
 ---
 
+## 🧪 **Experiment settings**
+
+- Model: `claude-sonnet-4-6` (Anthropic API) for every arm, decided 2026-11-03. Temperature 0.5, `max_tokens` 4096, within a $50 API budget tracked in `runs/usage_log.csv`.
+- Evaluator-Optimizer loop: `python Optimizer/loop.py claude --ids pilot.txt` (see `Optimizer/LOOP.md`).
+
+---
+
 ## 👩🏽‍💻 **Setup and Installation**
 
 **Provide step-by-step instructions so someone else can run your code and reproduce your results. Depending on your setup, include:**

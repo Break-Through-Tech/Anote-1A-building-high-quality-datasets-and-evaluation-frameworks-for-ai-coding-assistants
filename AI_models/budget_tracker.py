@@ -39,7 +39,9 @@ STOP_AT_USD = 47.0   # stop new requests at $47 to leave a $3 buffer
 # store each model's input and output prices per million tokens
 # add the exact model name and its prices from the provider's pricing page
 # the first number is the input price and the second is the output price
-PRICES_PER_MTOK: dict[str, tuple[float, float]] = {}
+PRICES_PER_MTOK: dict[str, tuple[float, float]] = {
+    "claude-sonnet-4-6": (3.0, 15.0),  # the experiment model (decided 2026-11-03); Anthropic list price
+}
 
 # use these backup prices when a model is missing from the price table
 # these are placeholders and may not cover every model's actual price

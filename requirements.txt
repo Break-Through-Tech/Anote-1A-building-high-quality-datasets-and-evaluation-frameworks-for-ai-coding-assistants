@@ -2,4 +2,5 @@ anthropic>=0.40,<1  # 1.x drops the temperature argument; 2.x's API version reje
 datasets
 python-dotenv
 openai
+pandas  # notebooks and budget_tracker.summarize()
 numpy  # some MBPP hidden tests import it (e.g. mbpp-622)

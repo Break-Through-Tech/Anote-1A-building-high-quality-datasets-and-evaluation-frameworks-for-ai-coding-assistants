@@ -29,3 +29,6 @@ STATUS.md
 # Panacea comparison target (local clone + its venv)
 .venv-panacea/
 panacea/
+
+# Mock loop runs (Optimizer/loop.py mock): plumbing checks, never results
+data/results/*_mock_*/
