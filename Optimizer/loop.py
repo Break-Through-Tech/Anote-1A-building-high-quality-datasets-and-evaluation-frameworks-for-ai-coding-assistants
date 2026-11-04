@@ -465,11 +465,15 @@ def main():
     if p["api_key_env"] and not key:
         sys.exit(f"{p['api_key_env']} not set. Copy .env.example to .env and fill it in.")
 
+    if args.provider != "mock" and rp.fingerprint() != rp.FROZEN_FINGERPRINT:
+        sys.exit("AI_models/retry_prompts.py changed since the prompts were frozen "
+                 f"({rp.FROZEN_DATE}). Changing them is a team decision: see that file's docstring.")
     items = select_ids(load_items(), read_task_list(args.ids))
     meta = {"scoring_version": SCORING_VERSION, "provider": args.provider, "model": model,
             "max_tokens": p["config"].get("max_tokens"), "temperature": p["config"].get("temperature"),
             "ids_file": args.ids, "task_ids": [it["id"] for it in items], "arms": args.arms,
             "retries": args.retries, "rule": "copy-forward after a public pass",
+            "retry_prompts_fingerprint": rp.fingerprint(),
             "git_commit": git_commit(), "usage_log": str(bt.LOG_PATH),
             "started": datetime.datetime.now().isoformat(timespec="seconds"), "finished": None}
 
@@ -479,7 +483,8 @@ def main():
         if not args.resume:
             sys.exit(f"{run_dir} already has results. Use --resume to continue it, or --name for a new run.")
         old = json.loads(meta_path.read_text())
-        for k in ("scoring_version", "provider", "model", "max_tokens", "temperature", "task_ids", "arms", "retries"):
+        for k in ("scoring_version", "provider", "model", "max_tokens", "temperature", "task_ids", "arms", "retries",
+                  "retry_prompts_fingerprint"):
             if old.get(k) != meta[k]:
                 sys.exit(f"Can't resume {run_dir}: {k} differs ({old.get(k)!r} vs {meta[k]!r}).")
         meta = {**old, "finished": None}

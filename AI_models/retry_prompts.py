@@ -33,7 +33,15 @@ Rules (same as prompts.py):
   extract_code() treats every arm the same way.
 
 They are used by the Evaluator-Optimizer loop: python Optimizer/loop.py (see Optimizer/LOOP.md).
+
+FROZEN on 2026-11-04, before the pilot: the experiments use only the 100 eval tasks, so the prompts are
+not tuned on them (open question 9). fingerprint() hashes every prompt below rendered on fixed sample
+inputs; FROZEN_FINGERPRINT is that hash. A real loop run refuses to start if they differ, every run records
+the fingerprint in run_meta.json, and Evaluator/self_test.py checks it. Changing a prompt is a team decision:
+change it, then update FROZEN_FINGERPRINT and FROZEN_DATE with the reason, and never compare runs across it.
 """
+
+import hashlib
 
 ARMS = ("control", "bare_retry", "reflect_fix", "critic")
 
@@ -96,6 +104,19 @@ def critic_fix(problem: str, prev_code: str, feedback: str, critique: str) -> st
             "also be checked on other tests you have not seen.\n\n"
             f"{OUTPUT_CONTRACT}")
 
+
+
+FROZEN_DATE = "2026-11-04"
+FROZEN_FINGERPRINT = "c769b05400fdea1d6bffccf7a27e0bb929c7507017e5ea0f82c066450a39860a"  # fingerprint() on FROZEN_DATE
+
+
+def fingerprint() -> str:
+    """sha256 of the system prompts and every arm's prompt, rendered on fixed sample inputs."""
+    problem, code = "Write f(x).", "def f(x):\n    return x"
+    fb, critique = "1 of 2 public tests failed.", "- returns x unchanged"
+    parts = [GENERATOR_SYSTEM, CRITIC_SYSTEM, OUTPUT_CONTRACT, bare_retry(problem, code),
+             reflect_fix(problem, code, fb), critic_review(problem, code, fb), critic_fix(problem, code, fb, critique)]
+    return hashlib.sha256("\n\x00\n".join(parts).encode()).hexdigest()
 
 if __name__ == "__main__":
     # Self-test: every arm's prompt builds, includes the code + feedback it should, and nothing it shouldn't.

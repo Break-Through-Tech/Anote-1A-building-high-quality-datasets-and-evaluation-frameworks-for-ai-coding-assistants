@@ -464,6 +464,8 @@ def loop(items, hidden):
               "reflect_fix": {"fixed": 1, "broke": 0}, "critic": {"fixed": 0, "broke": 0}}, tr)
     check("results: per-task table has hidden passed/total and level for every arm and attempt",
           len(tables["tasks"]) == 5 and {f"{a}_a{k}_hidden" for a in arms for k in (1, 2, 3)} <= set(tables["tasks"]))
+    check("loop: the retry prompts are the frozen ones (AI_models/retry_prompts.py, FROZEN_FINGERPRINT)",
+          lp.rp.fingerprint() == lp.rp.FROZEN_FINGERPRINT, lp.rp.FROZEN_DATE)
     check("report: exact McNemar (3 vs 0 discordant -> p = 0.25; none -> p = 1)",
           mcnemar({1: 1, 2: 1, 3: 1, 4: 0}, {1: 0, 2: 0, 3: 0, 4: 0}) == (3, 0, 0.25)
           and mcnemar({1: 1}, {1: 1})[2] == 1.0)

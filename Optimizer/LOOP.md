@@ -63,6 +63,21 @@ Notes on running:
 - Before a real run, estimate its cost: `python -c "from AI_models.budget_tracker import estimate_main_run as e; print(e('claude-sonnet-4-6', n_tasks=10, n_failed=5))"`. That assumes every failed task uses all 3 retries in every arm. Copy-forward makes it cheaper.
 - A task's rows are written only once the whole task is done. A crash or budget stop loses at most the unfinished task. Its API calls are still in the usage log, because that money was spent.
 
+## Before a paid run: checklist
+Run every step from the repo root, in order, and stop at the first one that fails.
+1. **Up to date:** `git pull`, so the usage log has everyone's spending. Check that `git status` is clean, so `run_meta.json` records the commit you actually ran.
+2. **Nobody else is running a paid job right now** (ask the team). The $47 stop only sees your local log.
+3. **Setup:** `pip install -r requirements.txt` (pins `anthropic<1`), and `.env` holds `ANTHROPIC_API_KEY`.
+4. **Checks pass:** `python Evaluator/self_test.py` ends with `ALL TESTS PASSED`. That includes the check that the retry prompts are still the frozen ones (see below).
+5. **Plumbing:** `python Optimizer/loop.py mock --ids pilot.txt` finishes. It makes no API calls and writes no real usage-log rows.
+6. **Money:** check what's been spent with `python -c "from AI_models.budget_tracker import total_spent as t; print(t())"`. Estimate the new run (see "Notes on running"). Spent plus estimate must stay under $47.
+7. **Run:** `python Optimizer/loop.py claude --ids pilot.txt`. After a budget stop or Ctrl-C, continue with `--resume`.
+8. **Right after:** commit and push `runs/usage_log.csv` and the new `data/results/<run>/` folder.
+9. **Panacea, same task list:** in `.venv-panacea`, run `python Baseline/baseline.py panacea --ids pilot.txt` (see `panacea_config.md`). Then do step 8 again for the log and `panacea_run.json`.
+10. **Results:** run `python Optimizer/results.py data/results/<run> panacea_run.json --charts`, and open `notebooks/results_analysis.ipynb`.
+
+**Frozen retry prompts (decided 2026-11-04):** the retry prompts in `AI_models/retry_prompts.py` were frozen before the pilot, because the experiments use the 100 eval tasks and prompts tuned on them would bias the result (open question 9). Every run records `retry_prompts_fingerprint` in `run_meta.json`. A real run refuses to start if the prompts differ from `FROZEN_FINGERPRINT`, and `--resume` refuses a run made with other prompts. Changing a prompt is a team decision: update `FROZEN_FINGERPRINT` and `FROZEN_DATE` with the reason, and never compare runs across the change.
+
 ## Budget log
 - Every API call goes through `AI_models/budget_tracker.py`, critic calls included. That's one row in `runs/usage_log.csv` (always at the repo root, wherever you start the script) with `task_id`, `arm` (`zero_shot` for attempt 0), `attempt`, `call_type` (`generator` / `critic`), tokens and cost. Copied-forward attempts make no call and get no row.
 - The same log covers `baseline.py`'s `claude` and `panacea` runs (arms `baseline_claude`, `baseline_panacea`), so the stop counts all Claude spending on this machine.
@@ -74,7 +89,7 @@ Notes on running:
 ## Results: `data/results/<date>_<provider>_<task list>/`
 | file | rows |
 |---|---|
-| `run_meta.json` | the settings: scoring version, provider, model, temperature, `max_tokens`, task ids, arms, retries, git commit, start/finish |
+| `run_meta.json` | the settings: scoring version, provider, model, temperature, `max_tokens`, task ids, arms, retries, `retry_prompts_fingerprint`, git commit, start/finish |
 | `attempt_0.jsonl` | one per task |
 | `attempt_1.jsonl` … `attempt_3.jsonl` | one per (task that failed attempt 0's public tests × arm) |
 | `summary.json` | the numbers below |
