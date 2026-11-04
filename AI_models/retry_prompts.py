@@ -32,7 +32,7 @@ Rules (same as prompts.py):
 - Every prompt ends with the same output contract (one ```python block), so
   extract_code() treats every arm the same way.
 
-Try them on 10 MBPP tasks: python AI_models/try_retry_prompts.py claude
+They are used by the Evaluator-Optimizer loop: python Optimizer/loop.py (see Optimizer/LOOP.md).
 """
 
 ARMS = ("control", "bare_retry", "reflect_fix", "critic")

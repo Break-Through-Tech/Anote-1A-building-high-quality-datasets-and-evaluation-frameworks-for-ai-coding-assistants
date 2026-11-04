@@ -9,8 +9,10 @@ how to use it:
   2 call check_budget before sending an api request
   3 call record_call after receiving the response
 
-each model call adds one row to runs/usage_log.csv
+each model call adds one row to runs/usage_log.csv at the repo root
 this includes calls that generate code and calls that review code
+it covers every Claude API call: the loop (Optimizer/loop.py), baseline.py's claude provider,
+and each call Panacea's agent makes (logged by a callback in AI_models/providers.py)
 
 test results are saved separately because testing happens after the api call
 use task_id, arm, and attempt to match this log with the test results
@@ -29,7 +31,11 @@ import threading
 import time
 from pathlib import Path
 
-LOG_PATH = Path(os.environ.get("USAGE_LOG_PATH", "runs/usage_log.csv"))
+# the log always lives at <repo root>/runs/usage_log.csv, wherever the script is started from
+# (e.g. a notebook in notebooks/), so the $47 stop sees every logged call
+# USAGE_LOG_PATH overrides it; a relative path there is also read from the repo root
+REPO_ROOT = Path(__file__).resolve().parent.parent
+LOG_PATH = REPO_ROOT / os.environ.get("USAGE_LOG_PATH", "runs/usage_log.csv")
 
 # budget amounts in dollars
 BUDGET_USD = 50.0
@@ -227,6 +233,46 @@ def record_call(model, input_tokens=None, output_tokens=None,
         print(f"[usage_log] No price set for model '{model}'; using the "
               f"high fallback. Add it to PRICES_PER_MTOK.", file=sys.stderr)
     return row
+
+
+def langchain_handler(model):
+    """
+    a LangChain callback for code that calls Claude through LangChain (Panacea's agent)
+    instead of through our own adapter, so we can't wrap each call ourselves
+
+    attach it to the chat model (callbacks=[handler]); then for every call it
+      checks the budget before the call (raises BudgetExceeded at the stop limit)
+      logs one row after the call, with the token counts the API returned
+    the rows it logs are also kept in handler.rows, so the caller can total one task
+    set_context before the run as usual; the handler copies it at the start of each call
+    and puts it back at the end, in case LangChain runs the end callback in another thread
+    """
+    from langchain_core.callbacks import BaseCallbackHandler  # only installed with Panacea
+
+    class BudgetLogHandler(BaseCallbackHandler):
+        raise_error = True  # LangChain ignores errors in callbacks unless this is set
+
+        def __init__(self):
+            self.rows = []
+            self._prompt_text, self._ctx = "", None
+
+        def on_chat_model_start(self, serialized, messages, **kwargs):
+            check_budget()
+            self._ctx = dict(_ctx.get() or {})
+            self._prompt_text = "\n".join(str(getattr(m, "content", m)) for batch in messages for m in batch)
+
+        def on_llm_end(self, response, **kwargs):
+            gen = response.generations[0][0] if response.generations and response.generations[0] else None
+            usage = (getattr(getattr(gen, "message", None), "usage_metadata", None)
+                     or (response.llm_output or {}).get("usage") or {})
+            if self._ctx:
+                set_context(**self._ctx)
+            self.rows.append(record_call(model, input_tokens=usage.get("input_tokens"),
+                                         output_tokens=usage.get("output_tokens"),
+                                         prompt_text=self._prompt_text,
+                                         output_text=getattr(gen, "text", "") or ""))
+
+    return BudgetLogHandler()
 
 
 def summarize(path=None):

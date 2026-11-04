@@ -36,10 +36,8 @@ One folder per run of `Optimizer/loop.py` (`<date>_<provider>_<task list>`): `ru
 | `code_generation_eval.jsonl` | All verified code-gen tasks (MBPP 377, LiveCodeBench 174), public tests only, in the evaluator schema |
 | `code_generation_full.parquet` | The same tasks with every column, for EDA and failure analysis (`tests` stored as a JSON string) |
 | `code_generation_private_tests.jsonl` | **Hidden tests for every verified code-gen task** (MBPP 287, from MBPP+; LiveCodeBench 175). Same row format as `unified_private_tests`. About 190 MB, so it is **git-ignored**: re-run the notebook to get it. The unified notebook cuts `unified_private_tests.jsonl.gz` out of it |
-| `bug_fixing_eval.jsonl`, `bug_fixing_full.parquet`, `bug_fixing_full.csv` | All 204 verified bug-fix tasks, same split between the eval file and the full file |
+| `bug_fixing_eval.jsonl`, `bug_fixing_full.parquet` | All 204 verified bug-fix tasks, same split between the eval file and the full file |
 | `reports/` | EDA charts and summary statistics |
-
-`data/code_generation_task_subset_75.csv` is an older 75-task sample (MBPP + HumanEval, old column names). The pipeline doesn't use it.
 
 ## Public vs. private (hidden) tests
 

@@ -43,9 +43,13 @@ pip install -r requirements.txt
 cp .env.example .env   # paste your ANTHROPIC_API_KEY
 python Baseline/baseline.py claude --ids smoke.txt
 ```
+**Which runs count for the experiment (decided 2026-11-03):** the Claude zero-shot result is the Evaluator-Optimizer loop's attempt 0 (`Optimizer/loop.py`), not this script's `claude` run, so there is one Claude zero-shot number. This script supplies the **Panacea** zero-shot arm: run `python Baseline/baseline.py panacea --ids <the loop run's task list>`, then `python Optimizer/report.py data/results/<run> panacea_run.json`. The `claude` provider stays for quick checks; `reference` checks the pipeline with no API.
+
+**Budget log:** every Claude API call goes into `runs/usage_log.csv` at the repo root, with the API's token counts, and stops at $47 of the $50 budget. That covers the `claude` provider (one row per task, arm `baseline_claude`) and each call Panacea's agent makes (arm `baseline_panacea`). The run files also carry `calls`, `input_tokens` and `cost_usd` per task, and the totals in `summary`. A budget stop ends the run after the last finished task. The log is committed: `git pull` before a paid run, then commit and push `runs/usage_log.csv` right after it (see `Optimizer/LOOP.md`, "Budget log").
+
 Writes `baseline_run.json` with this config, per-item results, and pass@1 scores, rewritten after every task. Each provider has its own file (`panacea_run.json`, `opensource_run.json`, `reference_run.json`; `_<level>` is added for prompt levels other than `raw`). Run every arm from the same `--ids` task list (`data/unified/task_lists/`), then compare with `python Baseline/compare_runs.py`. Run files record `scoring_version` (now 2: hidden-test headline); `compare_runs` refuses to mix versions, so re-run any run file without `scoring_version` (those scored public tests only).
 
-Before spending API calls, check that the data flows through scoring and the pipeline with `python Evaluator/self_test.py` (about 35 s on the real tasks and their public and hidden tests, no API, no files written).
+Before spending API calls, check that the data flows through scoring, the pipeline and the loop with `python Evaluator/self_test.py` (about 40 s on the real tasks and their public and hidden tests, no API, nothing written outside a temporary folder).
 
 ## Status
 - [ ] Run on a small sample

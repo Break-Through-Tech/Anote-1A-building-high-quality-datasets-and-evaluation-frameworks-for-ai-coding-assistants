@@ -3,4 +3,5 @@ datasets
 python-dotenv
 openai
 pandas  # notebooks and budget_tracker.summarize()
-numpy  # some MBPP hidden tests import it (e.g. mbpp-622)
+numpy  # some MBPP hidden tests import it (e.g. mbpp-622); results.py's bootstrap
+matplotlib  # Optimizer/charts.py (preinstalled in Colab)

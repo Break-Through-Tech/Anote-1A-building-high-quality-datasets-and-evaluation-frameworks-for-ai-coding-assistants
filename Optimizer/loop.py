@@ -18,8 +18,13 @@ attempt with no API call (carried_forward = true, 0 calls), so every arm has att
 
 Every attempt is scored on the hidden tests (the reported result; the model never sees them) and on
 the public tests (the only feedback). Every API call, critic calls included, is logged through
-AI_models/budget_tracker.py (runs/usage_log.csv), keyed by (task_id, arm, attempt). Output tokens
-come from the API; input tokens are the tracker's estimate (about 4 characters per token).
+AI_models/budget_tracker.py (runs/usage_log.csv), keyed by (task_id, arm, attempt), with the token
+counts the API returns.
+
+Attempt 0 is the official Claude zero-shot result (baseline.py claude is not used for experiment
+numbers); Panacea's zero-shot run comes from baseline.py panacea, and Optimizer/report.py puts the two
+side by side. summary.json splits attempt 0 into four cells (A true pass, B false pass, C hidden-only
+pass, D true fail; see SUMMARY) and reports each arm both over all tasks and over C + D only.
 
 Results go to data/results/<run>/ : run_meta.json, attempt_0.jsonl ... attempt_3.jsonl, summary.json.
 A task's rows are written once the whole task is done, so a crash or budget stop never leaves half
@@ -41,7 +46,7 @@ import os
 import subprocess
 import sys
 import time
-from collections import Counter, defaultdict
+from collections import defaultdict
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -71,14 +76,15 @@ ZERO_SHOT = "zero_shot"
 # =====================================================================
 def call_mock(client, item, cfg):
     if item.get("_role") == "critic":
-        return "- The function returns the wrong value.", 12, "mock"
+        return "- The function returns the wrong value.", 12, "mock", None
     h = int(hashlib.md5(f"{item['id']}|{item.get('_arm')}|{item.get('_attempt')}".encode()).hexdigest(), 16) % 10
     stub = f"```python\ndef {item.get('entry_point') or 'solve'}(*args, **kwargs):\n    return None\n```"
     if item.get("_attempt", 0) == 0:
         good = h >= 5
     else:
         good = h >= 6
-    return ("```python\n" + item["reference"] + "\n```" if good and item.get("reference") else stub), 40, "mock"
+    text = "```python\n" + item["reference"] + "\n```" if good and item.get("reference") else stub
+    return text, 40, "mock", None  # no input count: the tracker estimates it (estimated=True)
 
 
 MOCK = {"config": {"model": "mock", "max_tokens": None, "temperature": None},
@@ -89,28 +95,34 @@ MOCK = {"config": {"model": "mock", "max_tokens": None, "temperature": None},
 # CALLS (every one goes through the budget tracker)
 # =====================================================================
 def ask(p, client, item, prompt, system, task_id, arm, attempt, call_type):
-    """One API call. Returns (text, error, usage) where usage = {calls, output_tokens, input_tokens_est,
-    latency_s}. An AdapterError is returned as an error, not raised; BudgetExceeded is raised."""
+    """One API call. Returns (text, error, usage) where usage = {calls, output_tokens, input_tokens,
+    tokens_estimated, latency_s}. Token counts come from the API; tokens_estimated counts the calls whose
+    counts had to be estimated (a failed call, or the mock). An AdapterError is returned as an error, not
+    raised; BudgetExceeded is raised."""
     cfg = {**p["config"], "system_prompt": system}
     bt.set_context(task_id=task_id, arm=arm, attempt=attempt, call_type=call_type)
     bt.check_budget()  # raises BudgetExceeded at the stop limit
     start = time.time()
     try:
-        text, out_tokens, model_used = p["call"](
+        text, out_tokens, model_used, in_tokens = p["call"](
             client, {**item, "prompt": prompt, "_arm": arm, "_attempt": attempt, "_role": call_type}, cfg)
         error = None
     except AdapterError as e:  # the SDK already retried temporary errors; no answer, but money may be spent
-        text, out_tokens, model_used, error = "", None, cfg["model"], f"adapter_error: {e}"
+        text, out_tokens, in_tokens, model_used, error = "", None, None, cfg["model"], f"adapter_error: {e}"
     latency = round(time.time() - start, 2)
-    row = bt.record_call(model_used or cfg["model"], output_tokens=out_tokens,
+    row = bt.record_call(model_used or cfg["model"], input_tokens=in_tokens, output_tokens=out_tokens,
                          prompt_text=system + "\n" + prompt, output_text=text, latency_s=latency)
     bt.clear_context()
-    return text, error, {"calls": 1, "output_tokens": row["output_tokens"],
-                         "input_tokens_est": row["input_tokens"], "latency_s": latency}
+    return text, error, {"calls": 1, "output_tokens": row["output_tokens"], "input_tokens": row["input_tokens"],
+                         "tokens_estimated": int(row["estimated"]), "cost_usd": row["cost_usd"],
+                         "latency_s": latency}
+
+
+USAGE_KEYS = ("calls", "output_tokens", "input_tokens", "tokens_estimated", "cost_usd", "latency_s")
 
 
 def _add_usage(a, b):
-    return {k: round(a.get(k, 0) + b.get(k, 0), 2) for k in ("calls", "output_tokens", "input_tokens_est", "latency_s")}
+    return {k: round(a.get(k, 0) + b.get(k, 0), 6) for k in USAGE_KEYS}
 
 
 # =====================================================================
@@ -143,8 +155,9 @@ def make_row(item, arm, attempt, prompt, output, public, hidden, usage, critique
         "rubric_level": None if failed else hidden["rubric_level"],
         "level": None if failed else hidden["level"],
         "failure_type": None if failed else hidden["failure_type"],
-        # hidden test pass rate went down from this arm's previous attempt (null at attempt 0)
-        "regression": None if prev_row is None else hid_rate < prev_row["hidden_test_pass_rate"],
+        # hidden test pass rate went down from this arm's previous attempt (null at attempt 0, and null on
+        # a failed run: an API error is not the model making the code worse)
+        "regression": None if prev_row is None or failed else hid_rate < prev_row["hidden_test_pass_rate"],
         "carried_forward": False,
         "failed_run": failed, "error": error or (hidden["error"] if hidden["error"] else None),
         **usage,
@@ -154,8 +167,7 @@ def make_row(item, arm, attempt, prompt, output, public, hidden, usage, critique
 
 def carry_forward(prev_row, attempt):
     return {**prev_row, "attempt": attempt, "regression": False, "carried_forward": True,
-            "calls": 0, "output_tokens": 0, "input_tokens_est": 0, "latency_s": 0.0,
-            "prompt": None, "critique": None}
+            **{k: 0 for k in USAGE_KEYS}, "prompt": None, "critique": None}
 
 
 # =====================================================================
@@ -235,87 +247,153 @@ def git_commit():
 
 
 # =====================================================================
-# SUMMARY (minimal; the charts are the "Results views" task)
+# SUMMARY (the charts are the "Results views" task; Optimizer/report.py adds Panacea beside it)
+#
+# Attempt 0 puts every task (that didn't fail its API call) in one of four cells:
+#   A true_pass         public pass, hidden pass   -> done; same result in every arm
+#   B false_pass        public pass, hidden fail   -> done; looks right but isn't, and no arm can see it
+#   C hidden_only_pass  public fail, hidden pass   -> goes into the arms; can only stay or break
+#   D true_fail         public fail, hidden fail   -> goes into the arms; the real repair targets
+# Two views of each arm:
+#   all_tasks   hidden pass@1 over every task at attempts 0-3 (A and B keep their attempt-0 result).
+#               This is the number that goes beside zero-shot and Panacea.
+#   paired      only the tasks that went into the arms (C + D): the self-correction view.
+#               repairs / repair_rate are over D, breaks over C.
 # =====================================================================
-def _price(model):
-    return bt.PRICES_PER_MTOK.get(model, bt.FALLBACK_PRICE_PER_MTOK)
+CELLS = {(True, True): "A_true_pass", (True, False): "B_false_pass",
+         (False, True): "C_hidden_only_pass", (False, False): "D_true_fail"}
+
+
+def cell_of(row):
+    return CELLS[(row["public_score"] == 1.0, row["hidden_score"] == 1.0)]
+
+
+def _mean(xs):
+    return round(sum(xs) / len(xs), 3) if xs else None
+
+
+def _usage(rows):
+    return {"calls": sum(r["calls"] for r in rows), "input_tokens": sum(r["input_tokens"] for r in rows),
+            "output_tokens": sum(r["output_tokens"] for r in rows),
+            "tokens_estimated": sum(r["tokens_estimated"] for r in rows),
+            "cost_usd": round(sum(r["cost_usd"] for r in rows), 4)}
 
 
 def summarize_run(run_dir: Path) -> dict:
     meta = json.loads((run_dir / "run_meta.json").read_text())
-    retries = meta["retries"]
+    retries, arms = meta["retries"], meta["arms"]
     a0 = read_rows(run_dir, 0)
+    a0_by_id = {r["task_id"]: r for r in a0}
     by_key = {(r["task_id"], r["arm"], r["attempt"]): r for k in range(1, retries + 1) for r in read_rows(run_dir, k)}
-    arms = meta["arms"]
-    price_in, price_out = _price(meta["model"])
 
     ok0 = [r for r in a0 if not r["failed_run"]]
-    failed = [r for r in ok0 if r["public_score"] != 1.0]  # the paired set that goes into the arms
-    # keep only tasks with every arm complete (a resumed run always has them, but be safe)
-    failed = [r for r in failed if all((r["task_id"], a, retries) in by_key for a in arms)]
-    ids = [r["task_id"] for r in failed]
+    failed0 = [r["task_id"] for r in a0 if r["failed_run"]]
+    entered = [r for r in ok0 if r["public_score"] != 1.0]  # C + D: the tasks that went into the arms
+    # keep only tasks with every arm complete (rows are written per finished task, but be safe)
+    incomplete = [r["task_id"] for r in entered if not all((r["task_id"], a, retries) in by_key for a in arms)]
+    paired = [r["task_id"] for r in entered if r["task_id"] not in incomplete]
+    scored = [r["task_id"] for r in ok0 if r["task_id"] not in incomplete]  # A + B + paired
 
-    def mean(xs):
-        return round(sum(xs) / len(xs), 3) if xs else None
+    cells = defaultdict(list)
+    for r in ok0:
+        cells[cell_of(r)].append(r["task_id"])
+
+    def row_at(tid, arm, k):
+        """The task's row in this arm at attempt k: attempt 0 for A/B tasks and at k = 0."""
+        r0 = a0_by_id[tid]
+        return r0 if k == 0 or r0["public_score"] == 1.0 else by_key[(tid, arm, k)]
 
     def chain(tid, arm):
-        return [next(r for r in a0 if r["task_id"] == tid)] + [by_key[(tid, arm, k)] for k in range(1, retries + 1)]
+        return [row_at(tid, arm, k) for k in range(retries + 1)]
 
-    def arm_stats(task_ids, arm):
+    def paired_stats(task_ids, arm):
         chains = [chain(t, arm) for t in task_ids]
         rows = [r for c in chains for r in c[1:]]
-        fixes = sum(c[0]["hidden_score"] == 0.0 and c[-1]["hidden_score"] == 1.0 for c in chains)
-        calls = sum(r["calls"] for r in rows)
-        out_tok = sum(r["output_tokens"] for r in rows)
-        in_tok = sum(r["input_tokens_est"] for r in rows)
-        cost = (in_tok * price_in + out_tok * price_out) / 1_000_000
+        targets = [c for c in chains if c[0]["hidden_score"] == 0.0]  # D
+        keepers = [c for c in chains if c[0]["hidden_score"] == 1.0]  # C
+        repairs = sum(c[-1]["hidden_score"] == 1.0 for c in targets)
+        use = _usage(rows)
         return {
-            "n": len(chains),
-            "hidden_pass@1_by_attempt": [mean([c[k]["hidden_score"] for c in chains]) for k in range(retries + 1)],
-            "public_pass@1_by_attempt": [mean([c[k]["public_score"] for c in chains]) for k in range(retries + 1)],
-            "repairs": fixes,
-            "repair_rate": round(fixes / len(chains), 3) if chains else None,
+            "n": len(chains), "n_D_repair_targets": len(targets), "n_C_hidden_only_pass": len(keepers),
+            "hidden_pass@1_by_attempt": [_mean([c[k]["hidden_score"] for c in chains]) for k in range(retries + 1)],
+            "public_pass@1_by_attempt": [_mean([c[k]["public_score"] for c in chains]) for k in range(retries + 1)],
+            "repairs": repairs,
+            "repair_rate": round(repairs / len(targets), 3) if targets else None,
+            "breaks": sum(c[-1]["hidden_score"] == 0.0 for c in keepers),
             "false_fixes": sum(c[-1]["false_pass"] for c in chains),
             "regressions": sum(bool(r["regression"]) for r in rows),
             "failed_runs": sum(r["failed_run"] for r in rows),
-            "calls": calls, "output_tokens": out_tok, "input_tokens_est": in_tok,
-            "est_cost_usd": round(cost, 4),
-            "est_cost_per_repair_usd": round(cost / fixes, 4) if fixes else None,
-            "calls_per_repair": round(calls / fixes, 2) if fixes else None,
+            **use,
+            "cost_per_repair_usd": round(use["cost_usd"] / repairs, 4) if repairs else None,
+            "calls_per_repair": round(use["calls"] / repairs, 2) if repairs else None,
         }
 
-    per_arm = {a: arm_stats(ids, a) for a in arms}
+    def all_tasks_stats(task_ids, arm):
+        """Every task, attempts 0-3. failed attempt-0 runs are left out here and counted 0 in *_incl_failed."""
+        n_incl = len(task_ids) + len(failed0)
+        by_k = [[row_at(t, arm, k) for t in task_ids] for k in range(retries + 1)]
+        hidden = [sum(r["hidden_score"] for r in rows) for rows in by_k]
+        return {
+            "n": len(task_ids),
+            "hidden_pass@1_by_attempt": [_mean([r["hidden_score"] for r in rows]) for rows in by_k],
+            "hidden_pass@1_incl_failed_by_attempt": [round(h / n_incl, 3) if n_incl else None for h in hidden],
+            "public_pass@1_by_attempt": [_mean([r["public_score"] for r in rows]) for rows in by_k],
+            "false_passes_by_attempt": [sum(r["false_pass"] for r in rows) for rows in by_k],
+            # what the whole pipeline cost: attempt 0 on every task + this arm's retries
+            "cost_usd": round(zero_shot_use["cost_usd"] + per_arm[arm]["cost_usd"], 4),
+            "calls": zero_shot_use["calls"] + per_arm[arm]["calls"],
+        }
+
+    zero_shot_use = _usage(a0)
+    per_arm = {a: paired_stats(paired, a) for a in arms}
     if "control" in per_arm:
         ctrl = per_arm["control"]["hidden_pass@1_by_attempt"]
         for a in arms:
             mine = per_arm[a]["hidden_pass@1_by_attempt"]
             per_arm[a]["gain_over_control_by_attempt"] = [
                 None if m is None or c is None else round(m - c, 3) for m, c in zip(mine, ctrl)]
+    all_tasks = {a: all_tasks_stats(scored, a) for a in arms}
 
-    def group_table(key):
-        groups = defaultdict(list)
-        for r in failed:
-            groups[key(r)].append(r["task_id"])
-        return {g: {"n": len(t), **{a: arm_stats(t, a)["hidden_pass@1_by_attempt"] for a in arms}}
-                for g, t in sorted(groups.items())}
+    def groups(ids, key):
+        out = defaultdict(list)
+        for t in ids:
+            out[key(a0_by_id[t])].append(t)
+        return dict(sorted(out.items()))
 
+    # MBPP and LiveCodeBench difficulty are different scales: always grouped by source too
+    src_diff = lambda r: f"{r['source']}/{r['difficulty']}"
     summary = {
         "scoring_version": meta["scoring_version"], "model": meta["model"], "n_tasks": len(a0),
         "attempt_0": {
-            "failed_runs": len(a0) - len(ok0),
-            "hidden_pass@1": mean([r["hidden_score"] for r in ok0]),
-            "public_pass@1": mean([r["public_score"] for r in ok0]),
-            "false_passes": sum(r["false_pass"] for r in ok0),
-            "failed_public": len(failed),
+            "failed_runs": len(failed0),
+            "hidden_pass@1": _mean([r["hidden_score"] for r in ok0]),
+            "hidden_pass@1_incl_failed": _mean([r["hidden_score"] for r in a0]),
+            "public_pass@1": _mean([r["public_score"] for r in ok0]),
+            "false_passes": len(cells["B_false_pass"]),
+            "went_into_arms": len(entered),
+            "cells": {c: len(cells[c]) for c in CELLS.values()},
+            "cell_ids": {c: cells[c] for c in CELLS.values()},
+            **zero_shot_use,
         },
-        "paired_task_ids": ids,
+        "all_tasks": all_tasks,
+        "paired_task_ids": paired,
+        "incomplete_task_ids": incomplete,
         "arms": per_arm,
-        # MBPP and LiveCodeBench difficulty are different scales: always grouped by source too
-        "by_source_difficulty": group_table(lambda r: f"{r['source']}/{r['difficulty']}"),
-        "by_attempt0_failure_type": group_table(lambda r: r["failure_type"] or "none"),
-        "notes": "Arm stats are on the tasks that failed attempt 0's public tests. Input tokens and costs are "
-                 "estimates (budget_tracker). regression = hidden test pass rate went down from the arm's "
-                 "previous attempt.",
+        "all_tasks_by_source_difficulty": {
+            g: {"n": len(t), "cells": {c: sum(cell_of(a0_by_id[x]) == c for x in t) for c in CELLS.values()},
+                "zero_shot": _mean([a0_by_id[x]["hidden_score"] for x in t]),
+                **{a: _mean([row_at(x, a, retries)["hidden_score"] for x in t]) for a in arms}}
+            for g, t in groups(scored, src_diff).items()},
+        "by_source_difficulty": {g: {"n": len(t), **{a: paired_stats(t, a)["hidden_pass@1_by_attempt"] for a in arms}}
+                                 for g, t in groups(paired, src_diff).items()},
+        "by_attempt0_failure_type": {g: {"n": len(t), **{a: paired_stats(t, a)["hidden_pass@1_by_attempt"] for a in arms}}
+                                     for g, t in groups(paired, lambda r: r["failure_type"] or "none").items()},
+        "notes": "attempt_0.cells: A true pass, B false pass (public pass, hidden fail), C hidden-only pass "
+                 "(public fail, hidden pass), D true fail. all_tasks: hidden pass@1 over every task, A and B keeping "
+                 "their attempt-0 result; *_incl_failed counts failed attempt-0 API calls as 0. arms: only the "
+                 "tasks that went into the arms (C + D); repair_rate is over D, breaks over C. regression = hidden "
+                 "test pass rate went down from the arm's previous attempt. Costs are from the API's token counts "
+                 "(tokens_estimated = calls whose counts were estimated).",
     }
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2))
     return summary
@@ -323,19 +401,32 @@ def summarize_run(run_dir: Path) -> dict:
 
 def print_summary(s: dict):
     a = s["attempt_0"]
-    print(f"\n{s['n_tasks']} tasks. Attempt 0: hidden pass@1 {a['hidden_pass@1']}, public {a['public_pass@1']}, "
-          f"{a['false_passes']} false passes, {a['failed_runs']} failed runs, "
-          f"{a['failed_public']} failed public tests and went into the arms.")
+    c = a["cells"]
+    print(f"\n{s['n_tasks']} tasks, {a['failed_runs']} failed attempt-0 runs. Attempt 0: hidden pass@1 "
+          f"{a['hidden_pass@1']}, public {a['public_pass@1']}.")
+    print(f"  A true pass {c['A_true_pass']} | B false pass {c['B_false_pass']} | "
+          f"C hidden-only pass {c['C_hidden_only_pass']} | D true fail {c['D_true_fail']} "
+          f"-> {a['went_into_arms']} went into the arms")
+    if not s["all_tasks"]:
+        return
+    print("\nAll tasks, hidden pass@1 at attempts 0-3 (A and B keep attempt 0):")
+    print("| arm | a0 | a1 | a2 | a3 | false passes (a3) | calls | $ |")
+    print("|---|---|---|---|---|---|---|---|")
+    for arm, st in s["all_tasks"].items():
+        print(f"| {arm} | " + " | ".join(str(x) for x in st["hidden_pass@1_by_attempt"])
+              + f" | {st['false_passes_by_attempt'][-1]} | {st['calls']} | {st['cost_usd']} |")
     if not s["paired_task_ids"]:
         return
-    print("\nHidden pass@1 on those tasks, attempts 0-3:")
-    print("| arm | a0 | a1 | a2 | a3 | gain vs control (a3) | repairs | false fixes | regressions | calls | est $ |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|")
+    print(f"\nOnly the {len(s['paired_task_ids'])} tasks that went into the arms (C + D):")
+    print("| arm | a0 | a1 | a2 | a3 | gain vs control (a3) | repairs (of D) | breaks (of C) | false fixes "
+          "| regressions | calls | $ |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|")
     for arm, st in s["arms"].items():
         h = st["hidden_pass@1_by_attempt"]
         g = (st.get("gain_over_control_by_attempt") or [None])[-1]
-        print(f"| {arm} | " + " | ".join(str(x) for x in h) + f" | {g} | {st['repairs']}/{st['n']} | "
-              f"{st['false_fixes']} | {st['regressions']} | {st['calls']} | {st['est_cost_usd']} |")
+        print(f"| {arm} | " + " | ".join(str(x) for x in h) + f" | {g} | {st['repairs']}/{st['n_D_repair_targets']} | "
+              f"{st['breaks']}/{st['n_C_hidden_only_pass']} | {st['false_fixes']} | {st['regressions']} | "
+              f"{st['calls']} | {st['cost_usd']} |")
 
 
 # =====================================================================
@@ -343,7 +434,8 @@ def print_summary(s: dict):
 # =====================================================================
 def main():
     ap = argparse.ArgumentParser(description="Evaluator-Optimizer loop v1.")
-    ap.add_argument("provider", nargs="?", choices=["claude", "opensource", "mock"])
+    # Claude only (the experiment model) plus the no-API mock; opensource was dropped from the loop (2026-11-03).
+    ap.add_argument("provider", nargs="?", choices=["claude", "mock"])
     ap.add_argument("--ids", help="task list in data/unified/task_lists/ (e.g. pilot.txt)")
     ap.add_argument("--arms", nargs="+", choices=list(rp.ARMS), default=list(rp.ARMS))
     ap.add_argument("--retries", type=int, default=RETRIES)
