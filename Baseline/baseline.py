@@ -76,6 +76,7 @@ except ImportError:  # python-dotenv not installed: fall back to the shell envir
 from Evaluator.evaluator import SCORING_VERSION, evaluate, load_items, summarize
 from AI_models.prompts import ALL_LEVELS, LEVELS, build_prompt
 from AI_models.providers import PROVIDERS, AdapterError
+from AI_models import budget_tracker as bt
 
 TASK_LISTS_DIR = REPO_ROOT / "data" / "unified" / "task_lists"  # shared task-id lists, one id per line
 
@@ -101,13 +102,25 @@ def score_both(item: dict, text: str, latency_s: float = None, output_tokens: in
             "false_pass": public["score"] == 1.0 and hidden["score"] == 0.0}
 
 
+# Providers that call the Claude API, so every call goes into the shared budget log (runs/usage_log.csv,
+# $47 stop). claude makes one call per task, logged here. panacea's agent makes several, each logged by
+# the callback attached in providers._load_panacea; run_one only totals them for the run file.
+LOGGED = ("claude", "panacea")
+
+
 # Send one item's prompt (at the given detail level) through the chosen provider's adapter and score the reply.
 def run_one(provider_name: str, client, item: dict, level: str = "raw") -> dict:
     p = PROVIDERS[provider_name]
     prompt = build_prompt(item, level)
+    logged = provider_name in LOGGED
+    if logged:
+        bt.set_context(task_id=item["id"], arm=f"baseline_{provider_name}", attempt=0,
+                       call_type="agent" if provider_name == "panacea" else "generator")
+        bt.check_budget()  # raises BudgetExceeded at the stop limit; run_all stops the run
     start = time.time()
+    tokens = in_tokens = None
     try:
-        text, tokens, model_used = p["call"](client, {**item, "prompt": prompt}, p["config"])
+        text, tokens, model_used, in_tokens = p["call"](client, {**item, "prompt": prompt}, p["config"])[:4]
     except AdapterError as e:
         # The provider ran but gave no usable answer. Count it as a failed run (score 0 on both test sets),
         # not model output, and leave it out of the rubric levels.
@@ -118,6 +131,17 @@ def run_one(provider_name: str, client, item: dict, level: str = "raw") -> dict:
     else:
         result = score_both(item, text, latency_s=round(time.time() - start, 2), output_tokens=tokens)
         result["failed_run"] = False
+    if logged:
+        if provider_name == "claude":  # one call; a failed call is logged too, with estimated tokens
+            rows = [bt.record_call(p["config"]["model"], input_tokens=in_tokens, output_tokens=tokens,
+                                   prompt_text=p["config"]["system_prompt"] + "\n" + prompt, output_text=text,
+                                   latency_s=result.get("latency_s"))]
+        else:  # panacea: the rows its callback logged during this task (a failed run's calls included)
+            rows = list(client.budget_handler.rows)
+        bt.clear_context()
+        result["calls"] = len(rows)
+        result["input_tokens"] = sum(r["input_tokens"] for r in rows)
+        result["cost_usd"] = round(sum(r["cost_usd"] for r in rows), 6)
     result["task_type"] = item["task_type"]
     result["prompt_level"] = level
     result["prompt"] = prompt          # exactly what was sent, for comparing levels later
@@ -131,7 +155,11 @@ def run_one(provider_name: str, client, item: dict, level: str = "raw") -> dict:
 def run_all(provider_name: str, client, items: list, level: str = "raw", save=None) -> list:
     results = []
     for i, it in enumerate(items, 1):
-        r = run_one(provider_name, client, it, level)
+        try:
+            r = run_one(provider_name, client, it, level)
+        except bt.BudgetExceeded as e:  # the finished items are already saved
+            print(f"\nStopped at item {i}/{len(items)}: {e}", file=sys.stderr)
+            break
         print(f"  [{level}] {i}/{len(items)} {r['id']}: score={r['score']}", file=sys.stderr)
         results.append(r)
         if save:
@@ -153,6 +181,9 @@ def summarize_run(results: list) -> dict:
     summary["public_pass@1"] = round(sum(public) / len(public), 3) if public else None
     summary["false_passes"] = sum(1 for r in results if r.get("false_pass"))
     summary["scored_on"] = dict(Counter(r.get("scored_on") for r in results))  # hidden, or public if no hidden tests
+    if any("cost_usd" in r for r in results):  # Claude API providers (claude, panacea): from the budget log rows
+        summary["calls"] = sum(r.get("calls", 0) for r in results)
+        summary["cost_usd"] = round(sum(r.get("cost_usd", 0) for r in results), 4)
     return summary
 
 

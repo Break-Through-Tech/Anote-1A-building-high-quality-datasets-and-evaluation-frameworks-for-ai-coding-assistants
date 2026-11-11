@@ -136,16 +136,17 @@ For the optional CLI config (B), `ANTHROPIC_API_KEY` must be set even when using
 
 - **Shared inputs.** One test set, `data/unified/unified_eval.jsonl` (code generation: MBPP + LiveCodeBench). Each row gives the same `prompt` string to every arm, and every arm runs from the same task list (`baseline.py --ids`, `data/unified/task_lists/`).
 - **Arm 1, zero-shot baseline.**
-  - `Baseline/baseline.py claude` (already in the repo): `claude-sonnet-4-6` with the shared settings (`max_tokens` 4096, temperature 0.5, 2 SDK retries).
+  - The loop's attempt 0 (`Optimizer/loop.py`, `attempt_0.jsonl`): `claude-sonnet-4-6` with the shared settings (`max_tokens` 4096, temperature 0.5, 2 SDK retries). Decided 2026-11-03, so there is one Claude zero-shot result, not two. `Baseline/baseline.py claude` sends the same prompt, but it is not used for experiment numbers.
 - **Arm 2, our agentic pipeline.**
   - Evaluator-Optimizer retry loop: a zero-shot attempt 0, then retries with evaluator feedback (the research question's arms). The Router agent was dropped on 10/25.
   - Uses the same underlying model as arms 1 and 3, so gains come from orchestration and not from a stronger model.
 - **Arm 3, Panacea.**
-  - Add a `call_panacea(client, item, cfg)` adapter in `AI_models/providers.py`, same `(text, tokens, model_used)` return shape as `call_claude`.
+  - `call_panacea(client, item, cfg)` in `AI_models/providers.py`, same `(text, output_tokens, model_used, input_tokens)` return shape as `call_claude`.
   - It calls `run_coding_agent(item["prompt"], cwd=<empty temp dir>)`.
   - Treat an `Agent error:` prefix as a failed run.
   - Record `model_used = "claude-sonnet-4-6"` and the Panacea commit hash in `panacea_run.json`.
-  - Token usage is not exposed by the function, so report cost separately or estimate it.
+  - Panacea's zero-shot run, one agent run per task, no retry arms: `python Baseline/baseline.py panacea --ids <list>` with the loop run's task list. `Optimizer/report.py` puts it beside the loop.
+  - Token usage: `run_coding_agent` doesn't return it, so a LangChain callback (`budget_tracker.langchain_handler`, attached in the `ChatAnthropic` wrapper) logs every Claude call the agent makes to `runs/usage_log.csv` with the API's token counts (arm `baseline_panacea`, call type `agent`) and checks the $47 stop before each call. Each task's calls, tokens and cost are also in `panacea_run.json`. Not tested yet against the real agent: confirm in the one-time check below that rows appear.
 - **Arms 4 and 5, Claude Code and Codex** (advisor request).
   - Different kind of arm (agentic CLIs with their own tools).
   - Run headless on the same prompt in an empty temp dir. Capture the final code only.
@@ -167,7 +168,7 @@ For the optional CLI config (B), `ANTHROPIC_API_KEY` must be set even when using
    - Or the `anote` CLI, which is the fuller coding product but runs on the Claude Agent SDK, the same engine as Claude Code.
    - Or the multi-agent orchestrator in the legacy `backend/`, which is built for document Q&A, not code.
 2. **Is a near-baseline Panacea arm acceptable?** With a self-contained prompt and read-only file tools, we expect little difference from zero-shot.
-3. **Temperature and `max_tokens`. Decided by the team (2026-10-25):** we set both on Panacea at load time, to the values every arm shares (temperature 0.5, `max_tokens` 4096), and tell Natan in the next update. This deviates from stock Panacea. Temperature 0.5 needs a model that still accepts it (such as `claude-sonnet-4-6`); it is settled again when the experiment model is chosen.
+3. **Temperature and `max_tokens`. Decided by the team (2026-10-25):** we set both on Panacea at load time, to the values every arm shares (temperature 0.5, `max_tokens` 4096), and tell Natan in the next update. This deviates from stock Panacea. Temperature 0.5 needs a model that still accepts it; the experiment model, `claude-sonnet-4-6` (decided 2026-11-03), does.
 4. **Repo name.** `Baseline/BASELINE.md` links `anote-ai/Panacea`, but this task used `anote-ai/Autonomous-Intelligence`. The commit hash matches. Confirm which is the canonical repo.
 5. **Cost.** The Panacea arm needs a paid Anthropic key (a few cents per handful of tasks). Is there a team key, or should we use the OpenRouter free tier for the open-source arm only?
 6. **Static evaluation vs tools.** Panacea's agent can read files. Should we give it the task's repo files in `cwd`, or keep it prompt-only to match the baseline?

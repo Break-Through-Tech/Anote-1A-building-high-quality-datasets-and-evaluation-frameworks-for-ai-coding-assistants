@@ -8,7 +8,7 @@ Runs are only compared if they covered exactly the same task ids (run every arm
 from the same --ids task list) and were scored by the same scoring_version
 (version 1, files without the field, scored public tests only; version 2 scores
 hidden tests as the headline, with public pass@1 and false passes beside it).
-Files that aren't baseline.py runs (e.g. try_prompts_*_run.json) are skipped.
+Files that aren't baseline.py runs are skipped. Loop runs (Optimizer/loop.py) go through Optimizer/report.py instead.
 
 Usage (from the repo root):
     python Baseline/compare_runs.py                      # every *_run.json at the repo root

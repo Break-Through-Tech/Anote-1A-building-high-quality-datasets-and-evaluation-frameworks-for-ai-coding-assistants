@@ -2,8 +2,8 @@
 self_test.py
 
 One command to check that the data flows through the rubric and the pipeline correctly, with no
-API calls and no files written. Run it from the repo root after any change to the data, the
-evaluator, the prompts or the baseline:
+API calls and no files written outside a temporary folder. Run it from the repo root after any change
+to the data, the evaluator, the prompts, the baseline or the loop:
     python Evaluator/self_test.py
 
 Everything runs on the real code-generation tasks in data/unified/unified_eval.jsonl, with their
@@ -16,6 +16,14 @@ real public tests (`tests`) and real hidden tests (unified_private_tests.jsonl.g
    no API keys), and feedback that shows public tests only.
 3. Pipeline: prompts and retry prompts, baseline.py's run_one / summarize_run (hidden tests as
    the headline, public beside them), and compare_runs' guards.
+4. Loop: Optimizer/loop.py on one real MBPP task scripted into each attempt-0 cell (A true pass,
+   B false pass, C hidden-only pass, D true fail, a failed run): the cells, all-task and C + D
+   numbers, failed runs, copy-forward, one usage-log row per call, no hidden test text;
+   results.py's tables against summary.json; and report.py's McNemar test.
+5. Results views: a synthetic run of all 100 code-generation tasks (Optimizer/synthetic_run.py; invented
+   outcomes, so every cell, false fixes, regressions and failed calls appear) plus a fake Panacea run:
+   results.py's curves, arm outcomes and breakdowns against summary.json, the confidence intervals,
+   Panacea in the tables, and every chart in charts.py drawn in both themes.
 The hand-written parts are answers and edge cases only (broken code, odd reply formats); the
 tests they are scored on are always the real ones.
 
@@ -301,7 +309,7 @@ def pipeline(items, hidden, fixtures):
 
     # baseline.py on real tasks: the reference provider (MBPP) and the LiveCodeBench solutions through run_one.
     PROVIDERS["self_test_fixtures"] = {**PROVIDERS["reference"],
-                                       "call": lambda client, item, cfg: (fenced(fixtures[item["id"]]), 0, "fixture")}
+                                       "call": lambda client, item, cfg: (fenced(fixtures[item["id"]]), 0, "fixture", 0)}
     try:
         mbpp = [it for it in items.values() if it["source"] == "mbpp"]
         lcb = [items[i] for i in fixtures]
@@ -345,6 +353,201 @@ def pipeline(items, hidden, fixtures):
         check(f"compare_runs refuses runs with {name}", refused)
 
 
+# =====================================================================
+# 4. LOOP: Optimizer/loop.py's run_task + summarize_run and report.py's McNemar, with a scripted model
+# =====================================================================
+def loop(items, hidden):
+    """One real MBPP task in five copies, each scripted into one attempt-0 outcome:
+         A reference                      -> true pass
+         B right on the public tests only -> false pass (public pass, hidden fail)
+         C right on the first test only, scored against that one public test as its "hidden" set
+                                          -> hidden-only pass (the one place the hidden set is not the real one)
+         D do-nothing stub                -> true fail
+         E API error                      -> failed run
+       Retries: control gives a stub (breaks C, never repairs D); bare_retry fixes D at attempt 2;
+       reflect_fix has an API error at attempt 1, then fixes D; critic never fixes D.
+       Everything is written to a temporary folder, including the usage log."""
+    import tempfile
+    from AI_models import budget_tracker as bt
+    from AI_models.providers import AdapterError
+    from Optimizer import loop as lp
+    from Optimizer.report import mcnemar
+    from Optimizer.results import build
+
+    it = next(i for i in items.values() if i["source"] == "mbpp" and i["reference"].count(i["entry_point"] + "(") == 1)
+    n_pub, real_hidden = len(it["tests"]), hidden[it["id"]]
+    assert len(real_hidden) > n_pub, "the B case needs more hidden tests than public ones"
+    variants = {t: {**it, "id": f"{it['id']}#{t}", "private_tests": it["tests"][:1] if t == "C" else real_hidden}
+                for t in "ABCDE"}
+    ref, wrong, k1, kpub = (fenced(it["reference"]), fenced(stub(it)), fenced(first_k_correct(it, 1)),
+                            fenced(first_k_correct(it, n_pub)))
+
+    def call(client, item, cfg):
+        t, arm, k, role = item["id"][-1], item["_arm"], item["_attempt"], item["_role"]
+        if role == "critic":
+            return "- returns None", 5, "mock", 50
+        if k == 0:
+            if t == "E":
+                raise AdapterError("scripted API error")
+            return {"A": ref, "B": kpub, "C": k1, "D": wrong}[t], 10, "mock", 100
+        if arm == "reflect_fix" and k == 1:
+            raise AdapterError("scripted API error")
+        if t == "C":
+            return (wrong if arm == "control" else k1), 10, "mock", 100
+        fixed = arm in ("bare_retry", "reflect_fix") and k >= 2
+        return (ref if fixed else wrong), 10, "mock", 100
+
+    p = {"config": {"model": "mock", "max_tokens": None, "temperature": None}, "call": call}
+    arms = list(lp.rp.ARMS)
+    old_log, old_prices = bt.LOG_PATH, dict(bt.PRICES_PER_MTOK)
+    with tempfile.TemporaryDirectory() as tmp:
+        run_dir = Path(tmp)
+        bt.LOG_PATH, bt._state["total"] = run_dir / "usage_log.csv", None
+        bt.PRICES_PER_MTOK["mock"] = (1.0, 1.0)
+        try:
+            (run_dir / "run_meta.json").write_text(json.dumps(
+                {"scoring_version": SCORING_VERSION, "model": "mock", "arms": arms, "retries": 3,
+                 "task_ids": [variants[t]["id"] for t in "ABCDE"]}))
+            for t in "ABCDE":
+                lp.append_task(run_dir, lp.run_task(p, None, variants[t], arms, 3))
+            s = lp.summarize_run(run_dir)
+            tables, _ = build(run_dir, write=False)
+            rows = [r for k in range(4) for r in lp.read_rows(run_dir, k)]
+            with open(bt.LOG_PATH) as f:
+                n_logged = sum(1 for _ in f) - 1
+        finally:
+            bt.LOG_PATH, bt._state["total"] = old_log, None
+            bt.PRICES_PER_MTOK.clear()
+            bt.PRICES_PER_MTOK.update(old_prices)
+
+    a0 = s["attempt_0"]
+    check("loop: attempt 0 splits into cells A/B/C/D, plus one failed run",
+          a0["cells"] == {"A_true_pass": 1, "B_false_pass": 1, "C_hidden_only_pass": 1, "D_true_fail": 1}
+          and a0["failed_runs"] == 1 and a0["went_into_arms"] == 2 and a0["false_passes"] == 1, a0)
+    final = {a: s["all_tasks"][a]["hidden_pass@1_by_attempt"][-1] for a in arms}
+    incl = {a: s["all_tasks"][a]["hidden_pass@1_incl_failed_by_attempt"][-1] for a in arms}
+    check("loop: all-task hidden pass@1 at attempt 3 (A and B keep attempt 0; failed runs left out / counted 0)",
+          final == {"control": 0.25, "bare_retry": 0.75, "reflect_fix": 0.75, "critic": 0.5}
+          and incl == {"control": 0.2, "bare_retry": 0.6, "reflect_fix": 0.6, "critic": 0.4}
+          and all(s["all_tasks"][a]["hidden_pass@1_by_attempt"][0] == 0.5 for a in arms), (final, incl))
+    st = s["arms"]
+    check("loop: repairs counted over D, breaks over C",
+          [(st[a]["repairs"], st[a]["n_D_repair_targets"], st[a]["breaks"], st[a]["n_C_hidden_only_pass"]) for a in arms]
+          == [(0, 1, 1, 1), (1, 1, 0, 1), (1, 1, 0, 1), (0, 1, 0, 1)], st)
+    by = {(r["task_id"][-1], r["arm"], r["attempt"]): r for r in rows}
+    failed_retry = by[("D", "reflect_fix", 1)]
+    carried = by[("D", "bare_retry", 3)]
+    check("loop: an API error on a retry is a failed run, not a regression; the next retry builds on the last good one",
+          failed_retry["failed_run"] and failed_retry["regression"] is None and st["reflect_fix"]["failed_runs"] == 2
+          and by[("D", "reflect_fix", 2)]["hidden_score"] == 1.0, failed_retry)
+    check("loop: after a public pass, later attempts are copied forward with no call",
+          carried["carried_forward"] and carried["calls"] == 0 and carried["hidden_score"] == 1.0
+          and by[("A", "zero_shot", 0)]["calls"] == 1 and ("A", "control", 1) not in by, carried)
+    check("loop: critic attempts make two calls, and every call is one usage-log row",
+          by[("D", "critic", 1)]["calls"] == 2 and n_logged == sum(r["calls"] for r in rows),
+          (n_logged, sum(r["calls"] for r in rows)))
+    check("loop: token counts are the API's (only failed calls are estimated)",
+          by[("A", "zero_shot", 0)]["tokens_estimated"] == 0 and by[("E", "zero_shot", 0)]["tokens_estimated"] == 1
+          and by[("A", "zero_shot", 0)]["input_tokens"] == 100, by[("A", "zero_shot", 0)])
+    secret = _hidden_texts(real_hidden)
+    leaked = [t[:40] for t in secret for x in _strings(rows) if t in x]
+    check("loop: no hidden test text in any prompt, critique or row", not leaked, leaked[:2])
+    main, tr = tables["main"], tables["transitions"]
+    last = main[main["attempt"] == 3].set_index("system")["hidden_pass@1"].to_dict()
+    check("results: main table matches summary.json (every arm, attempt 3, all tasks incl. failed runs as 0)",
+          all(last[a] == s["all_tasks"][a]["hidden_pass@1_incl_failed_by_attempt"][-1] for a in arms), last)
+    check("results: cells table matches, and transitions count the fix and the break",
+          tables["cells"].iloc[0][["A_true_pass", "B_false_pass", "C_hidden_only_pass", "D_true_fail", "failed"]].tolist()
+          == [1, 1, 1, 1, 1]
+          and tr.groupby("arm")[["fixed", "broke"]].sum().to_dict("index")
+          == {"control": {"fixed": 0, "broke": 1}, "bare_retry": {"fixed": 1, "broke": 0},
+              "reflect_fix": {"fixed": 1, "broke": 0}, "critic": {"fixed": 0, "broke": 0}}, tr)
+    check("results: per-task table has hidden passed/total and level for every arm and attempt",
+          len(tables["tasks"]) == 5 and {f"{a}_a{k}_hidden" for a in arms for k in (1, 2, 3)} <= set(tables["tasks"]))
+    check("loop: the retry prompts are the frozen ones (AI_models/retry_prompts.py, FROZEN_FINGERPRINT)",
+          lp.rp.fingerprint() == lp.rp.FROZEN_FINGERPRINT, lp.rp.FROZEN_DATE)
+    check("report: exact McNemar (3 vs 0 discordant -> p = 0.25; none -> p = 1)",
+          mcnemar({1: 1, 2: 1, 3: 1, 4: 0}, {1: 0, 2: 0, 3: 0, 4: 0}) == (3, 0, 0.25)
+          and mcnemar({1: 1}, {1: 1})[2] == 1.0)
+
+
+def results_views():
+    """Synthetic run (test data) -> summary.json, results.py tables and charts.py charts, in a temp folder."""
+    import tempfile
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from Optimizer import loop as lp
+    from Optimizer.charts import draw_all
+    from Optimizer.results import build
+    from Optimizer.synthetic_run import write_run
+
+    with tempfile.TemporaryDirectory() as tmp:
+        run_dir = Path(tmp) / "run"
+        write_run(run_dir, seed=7)
+        s = lp.summarize_run(run_dir)
+        # a fake Panacea run in baseline.py's format, from the synthetic attempt 0 (outcomes flipped on a few)
+        a0 = lp.read_rows(run_dir, 0)
+        pan = [{"id": r["task_id"], "score": float(i % 3 == 0) if r["failed_run"] else r["hidden_score"],
+                "n_passed": 10 if r["hidden_score"] == 1.0 else 3, "n_tests": 10, "test_pass_rate": r["hidden_test_pass_rate"],
+                "rubric_level": r["rubric_level"] if r["rubric_level"] is not None else 1, "level": r["level"] or "Wrong",
+                "failure_type": r["failure_type"], "public": {"score": r["public_score"], "n_passed": 1, "n_tests": 3},
+                "false_pass": r["false_pass"], "failed_run": False, "calls": 3, "input_tokens": 3000,
+                "output_tokens": 1500, "cost_usd": 0.0315} for i, r in enumerate(a0)]
+        pan_path = Path(tmp) / "panacea_run.json"
+        pan_path.write_text(json.dumps({"scoring_version": SCORING_VERSION, "results": pan}))
+        tables, meta = build(run_dir, pan_path, write=False)
+        n_png = {}
+        for theme in ("light", "dark"):
+            out = Path(tmp) / f"charts_{theme}"
+            draw_all(tables, meta, out, theme=theme, close=True)
+            n_png[theme] = len(list(out.glob("*.png")))
+        plt.close("all")
+
+    arms, cells = meta["arms"], s["attempt_0"]["cells"]
+    check("views: the synthetic run has every attempt-0 cell, failed runs, false fixes and regressions",
+          min(cells.values()) > 0 and s["attempt_0"]["failed_runs"] > 0
+          and all(s["arms"][a]["false_fixes"] > 0 and s["arms"][a]["regressions"] > 0 for a in arms), cells)
+    c = tables["curves"]
+    curve = lambda scope, a, col="hidden_pass@1": c[(c["scope"] == scope) & (c["arm"] == a)].sort_values("attempt")[col].tolist()  # noqa: E731
+    check("views: curves match summary.json (all tasks, incl. failed as 0, C + D, gain over control)",
+          all(curve("all", a) == s["all_tasks"][a]["hidden_pass@1_by_attempt"]
+              and curve("all", a, "hidden_pass@1_incl_failed") == s["all_tasks"][a]["hidden_pass@1_incl_failed_by_attempt"]
+              and curve("paired", a) == s["arms"][a]["hidden_pass@1_by_attempt"]
+              and curve("paired", a, "gain_vs_control") == s["arms"][a]["gain_over_control_by_attempt"] for a in arms))
+    o = tables["arm_outcomes"].set_index("arm")
+    pairs = {"repairs": "repairs", "breaks": "breaks", "false_fixes": "false_fixes", "regression_events": "regressions",
+             "failed_api_calls": "failed_runs", "n_D": "n_D_repair_targets", "n_C": "n_C_hidden_only_pass",
+             "calls": "calls", "cost_usd": "cost_usd", "cost_per_repair_usd": "cost_per_repair_usd"}
+    bad = [(a, mine, o.loc[a, mine], s["arms"][a][theirs]) for a in arms for mine, theirs in pairs.items()
+           if abs(o.loc[a, mine] - s["arms"][a][theirs]) > 1e-9]
+    bad += [(a, "pipeline", o.loc[a, "pipeline_cost_usd"], s["all_tasks"][a]["cost_usd"]) for a in arms
+            if abs(o.loc[a, "pipeline_cost_usd"] - s["all_tasks"][a]["cost_usd"]) > 1e-9]
+    check("views: arm outcomes match summary.json (repairs, breaks, false fixes, regressions, failed calls, cost)",
+          not bad, bad[:3])
+    bg = tables["by_group"]
+
+    def groups(grouping, rename=lambda g: g):
+        d = bg[(bg["grouping"] == grouping) & (bg["scope"] == "paired") & bg["system"].isin(arms)]
+        return {rename(g): {"n": int(x["n"].max()), **{a: x[x["system"] == a].sort_values("attempt")["hidden_pass@1"].tolist()
+                                                     for a in arms}} for g, x in d.groupby("group")}
+    check("views: breakdowns match summary.json (source/difficulty, attempt-0 failure type; C + D)",
+          groups("source_difficulty") == s["by_source_difficulty"]
+          and groups("attempt0_failure_type", lambda g: "none" if g == "none (hidden pass)" else g)
+          == s["by_attempt0_failure_type"])
+    inside = (c["ci_low"] <= c["hidden_pass@1"]) & (c["hidden_pass@1"] <= c["ci_high"])
+    g = c.dropna(subset=["gain_ci_low"])
+    check("views: every Wilson and bootstrap interval contains its estimate",
+          inside.all() and ((g["gain_ci_low"] <= g["gain_vs_control"]) & (g["gain_vs_control"] <= g["gain_ci_high"])).all()
+          and len(g) == 3 * 3 * 4)
+    m, pt = tables["main"], tables["paired_tests"]
+    check("views: Panacea is in the main, cells and paired-test tables",
+          (m["system"] == "panacea").sum() == 1 and (tables["cells"]["system"] == "panacea").sum() == 1
+          and (pt["kind"] == "panacea").sum() == 1 + len(arms))
+    check("views: every chart is drawn in both themes (9 for a code-generation run)",
+          n_png == {"light": 9, "dark": 9}, n_png)
+
+
 if __name__ == "__main__":
     t0 = time.time()
     items, hidden, fixtures = load()
@@ -356,4 +559,6 @@ if __name__ == "__main__":
     isolation(items, fixtures)
     feedback(items, hidden)
     pipeline(items, hidden, fixtures)
+    loop(items, hidden)
+    results_views()
     print(f"ALL TESTS PASSED ({time.time() - t0:.0f}s)")

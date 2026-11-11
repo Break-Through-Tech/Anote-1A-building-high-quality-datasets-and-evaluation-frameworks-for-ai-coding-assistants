@@ -30,7 +30,7 @@ PANACEA_DIR = Path(os.environ.get("PANACEA_PATH") or Path(__file__).resolve().pa
 
 # Decoding settings shared by every arm, so the arms differ only in how they are orchestrated.
 # Change them only here.
-MAX_TOKENS = 4096   # output cap; placeholder until the experiment model and budget are chosen
+MAX_TOKENS = 4096   # output cap for the experiment model, claude-sonnet-4-6 (decided 2026-11-03)
 TEMPERATURE = 0.5   # above 0 so the fresh-resample control arm actually resamples
 MAX_RETRIES = 2     # the SDK's own retries on temporary API errors (rate limit, overload, timeout, 5xx)
 
@@ -44,7 +44,8 @@ class AdapterError(RuntimeError):
 # =====================================================================
 # API ADAPTERS
 # One small function per provider - this is the only part that actually
-# differs between them. Each returns (text, output_tokens, model_used).
+# differs between them. Each returns (text, output_tokens, model_used, input_tokens);
+# a token count is None when the provider doesn't report it.
 # =====================================================================
 
 # Call Claude directly (Anthropic's own SDK / request shape).
@@ -61,7 +62,7 @@ def call_claude(client, item, cfg):
         raise AdapterError(f"{type(e).__name__}: {e}") from e
     block = resp.content[0] if resp.content else None
     text = block.text if block is not None and hasattr(block, "text") else ""
-    return text, resp.usage.output_tokens, cfg["model"]
+    return text, resp.usage.output_tokens, cfg["model"], resp.usage.input_tokens, resp.stop_reason
 
 
 # Call an open-source model over OpenRouter (OpenAI-compatible request shape).
@@ -79,7 +80,8 @@ def call_opensource(client, item, cfg):
         raise AdapterError(f"{type(e).__name__}: {e}") from e
     text = resp.choices[0].message.content or ""
     tokens = resp.usage.completion_tokens if resp.usage else None
-    return text, tokens, resp.model  # resp.model: "openrouter/free" auto-routes, record what actually answered
+    in_tokens = resp.usage.prompt_tokens if resp.usage else None
+    return text, tokens, resp.model, in_tokens  # resp.model: "openrouter/free" auto-routes, record what answered
 
 
 # Flatten a LangChain-style result into plain text (newer langchain-anthropic returns a list of content blocks).
@@ -94,13 +96,17 @@ def _to_text(out) -> str:
 # Call Panacea's own coding agent (packages/backend/agents/coding_agent.py, see panacea_config.md).
 # `client` is the run_coding_agent function itself (built by _load_panacea below).
 def call_panacea(client, item, cfg):
+    # run_coding_agent doesn't return token usage. Each of its ChatAnthropic calls is logged to the budget
+    # log by the callback attached in _load_panacea; this task's rows are client.budget_handler.rows.
+    rows = client.budget_handler.rows
+    rows.clear()
     with tempfile.TemporaryDirectory() as empty_dir:  # prompt-only: the agent's file tools see nothing
         out = _to_text(client(item["prompt"], cwd=empty_dir))
     # run_coding_agent swallows every exception and returns it as a string, so check for it.
     # Not retried here: its ChatAnthropic already retried temporary errors MAX_RETRIES times.
     if out.startswith("Agent error:"):
         raise AdapterError(out[:300])
-    return out, None, cfg["model"]  # the function does not expose token usage
+    return (out, sum(r["output_tokens"] for r in rows), cfg["model"], sum(r["input_tokens"] for r in rows))
 
 
 # Return the dataset's own reference solution. No API, no cost: a sanity check that the
@@ -108,7 +114,7 @@ def call_panacea(client, item, cfg):
 def call_reference(client, item, cfg):
     if not item.get("reference"):
         raise AdapterError("item has no reference solution")
-    return "```python\n" + item["reference"] + "\n```", 0, "reference"
+    return "```python\n" + item["reference"] + "\n```", 0, "reference", 0
 
 
 # Build the Anthropic client (imported here so the reference provider works without the anthropic package).
@@ -143,18 +149,27 @@ def _load_panacea(key):
     import langchain_anthropic
     chat_anthropic = langchain_anthropic.ChatAnthropic
     cfg = PROVIDERS["panacea"]["config"]
+    from AI_models import budget_tracker as bt
+    handler = bt.langchain_handler(cfg["model"])  # the logging itself lives in budget_tracker.py
 
     def shared_settings_chat_anthropic(*args, **kwargs):
         kwargs.setdefault("max_tokens", cfg["max_tokens"])
         kwargs.setdefault("temperature", cfg["temperature"])
         kwargs.setdefault("max_retries", cfg["max_retries"])
+        # Log every Claude call the agent makes to the shared budget log (the $50 budget covers Panacea too).
+        kwargs["callbacks"] = list(kwargs.get("callbacks") or []) + [handler]
         return chat_anthropic(*args, **kwargs)
 
     langchain_anthropic.ChatAnthropic = shared_settings_chat_anthropic
 
     sys.path.insert(0, str(backend))
     from agents.coding_agent import run_coding_agent
-    return run_coding_agent
+
+    def agent(prompt, cwd):
+        return run_coding_agent(prompt, cwd=cwd)
+
+    agent.budget_handler = handler  # call_panacea reads the rows logged during one task from here
+    return agent
 
 
 # =====================================================================

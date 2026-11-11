@@ -23,7 +23,11 @@ Run order: the two task notebooks (either order), then `unified_dataset.ipynb`. 
 | `unified_private_tests.jsonl.gz` | **Hidden tests for the 100 code-generation tasks** in `unified_eval.jsonl`. One row per task: `id`, `private_test_cases`. About 28 MB. | **Never.** Final scoring only |
 | `unified_pool.jsonl` | **Every verified task trimming didn't pick** (514), same columns as `unified_eval.jsonl`. For retrieval / few-shot examples. | Can be, as examples. These are never scored |
 | `reports/trim_summary.csv` | Tasks verified, eligible, and kept per dataset | n/a |
-| `task_lists/*.txt` | **Which tasks a run uses**, one `id` per line (`#` starts a comment). Every arm reads the same list with `python Baseline/baseline.py <provider> --ids <file>`, so all arms run exactly the same tasks. `smoke.txt` is the 5-task smoke run of 2026-10-21. Written by hand, not by a notebook | n/a |
+| `task_lists/*.txt` | **Which tasks a run uses**, one `id` per line (`#` starts a comment). Every arm reads the same list with `python Baseline/baseline.py <provider> --ids <file>`, so all arms run exactly the same tasks. `smoke.txt` is the 5-task smoke run of 2026-10-21; `pilot.txt` is the 10-task loop pilot (one task per source / difficulty / test format). Written by hand, not by a notebook | n/a |
+
+### `data/results/`: Evaluator-Optimizer loop results
+
+One folder per run of `Optimizer/loop.py` (`<date>_<provider>_<task list>`): `run_meta.json`, `attempt_0.jsonl` (one row per task), `attempt_1.jsonl` to `attempt_3.jsonl` (one row per task and arm, only for tasks that failed attempt 0's public tests) and `summary.json`. Rows hold hidden-test **counts** only, never hidden test text. Committed to git; mock runs (`*_mock_*`) are git-ignored. Fields and rules: `Optimizer/LOOP.md`. API calls and costs are in `runs/usage_log.csv`, joined on `task_id`, `arm`, `attempt`.
 
 ### `data/code_generation/` and `data/bug_fixes/`: everything verified, before trimming
 
@@ -32,10 +36,8 @@ Run order: the two task notebooks (either order), then `unified_dataset.ipynb`. 
 | `code_generation_eval.jsonl` | All verified code-gen tasks (MBPP 377, LiveCodeBench 174), public tests only, in the evaluator schema |
 | `code_generation_full.parquet` | The same tasks with every column, for EDA and failure analysis (`tests` stored as a JSON string) |
 | `code_generation_private_tests.jsonl` | **Hidden tests for every verified code-gen task** (MBPP 287, from MBPP+; LiveCodeBench 175). Same row format as `unified_private_tests`. About 190 MB, so it is **git-ignored**: re-run the notebook to get it. The unified notebook cuts `unified_private_tests.jsonl.gz` out of it |
-| `bug_fixing_eval.jsonl`, `bug_fixing_full.parquet`, `bug_fixing_full.csv` | All 204 verified bug-fix tasks, same split between the eval file and the full file |
+| `bug_fixing_eval.jsonl`, `bug_fixing_full.parquet` | All 204 verified bug-fix tasks, same split between the eval file and the full file |
 | `reports/` | EDA charts and summary statistics |
-
-`data/code_generation_task_subset_75.csv` is an older 75-task sample (MBPP + HumanEval, old column names). The pipeline doesn't use it.
 
 ## Public vs. private (hidden) tests
 

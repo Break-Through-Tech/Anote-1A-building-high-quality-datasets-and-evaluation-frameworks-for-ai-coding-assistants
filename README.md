@@ -29,15 +29,34 @@
 
 ---
 
+## 🧪 **Experiment settings**
+
+- Model: `claude-sonnet-4-6` (Anthropic API) for every arm, decided 2026-11-03. Temperature 0.5, `max_tokens` 4096, within a $50 API budget tracked in `runs/usage_log.csv`.
+- Evaluator-Optimizer loop: `python Optimizer/loop.py claude --ids pilot.txt` (see `Optimizer/LOOP.md`).
+
+---
+
 ## 👩🏽‍💻 **Setup and Installation**
 
-**Provide step-by-step instructions so someone else can run your code and reproduce your results. Depending on your setup, include:**
+Scoring needs macOS, Linux or Colab (per-test timeouts use a Unix signal).
 
-* How to clone the repository
-* How to install dependencies
-* How to set up the environment
-* How to access the dataset(s)
-* How to run the notebook or scripts
+```bash
+git clone https://github.com/Break-Through-Tech/Anote-1A-building-high-quality-datasets-and-evaluation-frameworks-for-ai-coding-assistants.git
+cd Anote-1A-building-high-quality-datasets-and-evaluation-frameworks-for-ai-coding-assistants
+pip install -r requirements.txt
+cp .env.example .env                 # paste ANTHROPIC_API_KEY
+python Evaluator/self_test.py        # no API: checks data, scoring, baseline and loop (~40 s)
+```
+
+- **Data:** the final files are in git (`data/unified/unified_eval.jsonl` and the hidden tests `unified_private_tests.jsonl.gz`). To rebuild them, run `notebooks/code_generation_EDA_pipeline.ipynb` and `notebooks/bug_fixes_EDA_pipeline.ipynb`, then `notebooks/unified_dataset.ipynb`. In Colab, clone the repo and `%cd` into `notebooks/` first. See `data/README.md`.
+- **Experiment** (every run uses a fixed task list from `data/unified/task_lists/`):
+  ```bash
+  python Optimizer/loop.py mock --ids pilot.txt                 # no API: checks the loop
+  python Optimizer/loop.py claude --ids pilot.txt               # Claude: zero-shot + 4 retry arms
+  python Baseline/baseline.py panacea --ids pilot.txt           # Panacea zero-shot (setup: panacea_config.md)
+  python Optimizer/report.py data/results/<run> panacea_run.json
+  ```
+  Every Claude call is logged to `runs/usage_log.csv`; new calls stop at $47 of the $50 budget.
 
 ---
 

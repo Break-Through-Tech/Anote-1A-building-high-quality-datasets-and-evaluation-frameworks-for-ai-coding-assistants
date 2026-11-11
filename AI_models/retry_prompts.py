@@ -32,8 +32,17 @@ Rules (same as prompts.py):
 - Every prompt ends with the same output contract (one ```python block), so
   extract_code() treats every arm the same way.
 
-Try them on 10 MBPP tasks: python AI_models/try_retry_prompts.py claude
+They are used by the Evaluator-Optimizer loop: python Optimizer/loop.py (see Optimizer/LOOP.md).
+
+FROZEN on 2026-11-04, before the pilot, so the prompts are not tuned on the 100 eval tasks. They may change
+during dev runs (--split dev, pool tasks not in eval); the test split stays frozen. fingerprint() hashes every
+prompt below rendered on fixed sample inputs; FROZEN_FINGERPRINT is that hash. A --split test run refuses to
+start if they differ, every run records the fingerprint in run_meta.json, and Evaluator/self_test.py checks it,
+so the self-test fails after a prompt edit until the fingerprint is updated. Changing a prompt is a team decision:
+change it, then update FROZEN_FINGERPRINT and FROZEN_DATE with the reason, and never compare runs across it.
 """
+
+import hashlib
 
 ARMS = ("control", "bare_retry", "reflect_fix", "critic")
 
@@ -96,6 +105,19 @@ def critic_fix(problem: str, prev_code: str, feedback: str, critique: str) -> st
             "also be checked on other tests you have not seen.\n\n"
             f"{OUTPUT_CONTRACT}")
 
+
+
+FROZEN_DATE = "2026-11-04"
+FROZEN_FINGERPRINT = "c769b05400fdea1d6bffccf7a27e0bb929c7507017e5ea0f82c066450a39860a"  # fingerprint() on FROZEN_DATE
+
+
+def fingerprint() -> str:
+    """sha256 of the system prompts and every arm's prompt, rendered on fixed sample inputs."""
+    problem, code = "Write f(x).", "def f(x):\n    return x"
+    fb, critique = "1 of 2 public tests failed.", "- returns x unchanged"
+    parts = [GENERATOR_SYSTEM, CRITIC_SYSTEM, OUTPUT_CONTRACT, bare_retry(problem, code),
+             reflect_fix(problem, code, fb), critic_review(problem, code, fb), critic_fix(problem, code, fb, critique)]
+    return hashlib.sha256("\n\x00\n".join(parts).encode()).hexdigest()
 
 if __name__ == "__main__":
     # Self-test: every arm's prompt builds, includes the code + feedback it should, and nothing it shouldn't.
