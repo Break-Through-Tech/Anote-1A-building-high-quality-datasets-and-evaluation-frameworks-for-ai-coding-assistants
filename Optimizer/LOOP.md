@@ -12,7 +12,7 @@
 | **C** hidden-only pass | fail | pass | goes into the arms; can only stay right or **break** |
 | **D** true fail | fail | fail | goes into the arms; the real **repair** targets |
 
-   - The API call failed (`failed_run`) → the task stops. It's left out of the arm comparison and counted 0 in the `*_incl_failed` numbers.
+   - The API call failed (`failed_run`) → the task stops. It's left out of the arm comparison, counted 0 in `hidden_pass@1` and `public_pass@1`, and left out of the `*_excl_failed` numbers.
 2. **Otherwise**, the task goes into each of the four arms separately, all starting from attempt 0, for up to 3 retries:
 
 | arm | retry prompt | calls per retry |
@@ -35,10 +35,12 @@ python Optimizer/loop.py mock --split dev                     # no API: checks t
 python Optimizer/loop.py claude --split dev                   # dev pilot: 10 pool tasks not in eval
 python Optimizer/loop.py claude --split dev --resume          # continue after a stop
 python Optimizer/loop.py claude --split test --ids <list>     # the test run, once prompts are frozen
-python Optimizer/loop.py --summarize data/results/<run>       # rebuild summary.json only
+python Optimizer/loop.py --summarize data/results/<run>       # rebuild summary.json and report.md
 python Baseline/baseline.py panacea --ids <list>              # Panacea's zero-shot arm, same tasks as the test run
-python Optimizer/report.py data/results/<run> panacea_run.json --out data/results/<run>/report.md
+python Optimizer/report.py data/results/<run> panacea_run.json   # add Panacea to report.md
 ```
+
+Every run writes `report.md` itself and prints the same text in the terminal. `--summarize` rebuilds it without Panacea, so run `report.py` again afterwards if the run has a Panacea file.
 
 `--split dev` needs `data/code_generation/code_generation_private_tests.jsonl` (git-ignored; built by the code-generation notebook). Dev runs check the plumbing and measure tokens; they are never reported as results. The frozen-prompt check applies to `--split test` only.
 
@@ -54,7 +56,11 @@ python Optimizer/report.py data/results/<run> panacea_run.json --out data/result
 
 **Test data:** `python Optimizer/synthetic_run.py <folder>` writes a fake run of all 100 tasks with invented outcomes, so the tables and charts can be tried on cases a mock run never produces (B and C tasks, false fixes, regressions). Its charts carry a TEST DATA banner. Never report those numbers. `Evaluator/self_test.py` uses it to check the tables against `summary.json`.
 
-`report.py` is the main results table: Claude zero-shot (attempt 0), Claude + each arm (attempt 3), and Panacea zero-shot, with hidden pass@1 (with and without failed runs), public pass@1, false passes, calls and cost; then the A/B/C/D cells, the C + D view, and exact McNemar tests on per-task pass/fail (each arm vs control, each arm vs zero-shot, Panacea vs Claude zero-shot). It stops if the runs cover different tasks or scoring versions. Providers: `claude` and `mock` only (`opensource` was dropped from the loop on 2026-11-03).
+`loop.py` only runs the experiment. `report.py` owns every summary: it builds `summary.json` and the report, which is the same text in the terminal and in `report.md` and covers everything in `summary.json`. It imports nothing from `loop.py`. Running `report.py` adds Panacea to that report, and stops if the runs cover different tasks or scoring versions. The sections are: run health, main results, all tasks by attempt, the A/B/C/D cells, self-correction (C + D), breakdowns, paired tests, task ids and notes.
+
+The paired tests are exact McNemar tests on per-task pass/fail. `p_holm` is corrected within a family, and the verdict is significant when it is below 0.05. Read `feedback_vs_control` first (each feedback arm vs the control at attempt 3): it answers whether feedback beats a fresh resample. The other families are `vs_zero_shot`, `panacea` and, in `paired_tests.csv` only, `exploratory`. "Not significant" means this run can't tell, not that there is no difference.
+
+Providers: `claude` and `mock` only (`opensource` was dropped from the loop on 2026-11-03).
 
 Options:
 - `--arms control reflect_fix` runs a subset of arms.
@@ -96,6 +102,7 @@ Run every step from the repo root, in order, and stop at the first one that fail
 | `attempt_0.jsonl` | one per task |
 | `attempt_1.jsonl` … `attempt_3.jsonl` | one per (task that failed attempt 0's public tests × arm) |
 | `summary.json` | the numbers below |
+| `report.md` | the same text the terminal prints: run health, main table, attempts, cells, self-correction, breakdowns, paired tests with Holm p values, task ids |
 
 Row fields (the same in every attempt file):
 
@@ -113,15 +120,17 @@ Row fields (the same in every attempt file):
 | `calls`, `input_tokens`, `output_tokens`, `tokens_estimated`, `cost_usd`, `latency_s` | per attempt (critic attempts sum both calls); they match the usage-log rows. `tokens_estimated` = calls whose counts were estimated |
 | `prompt`, `critique`, `output` | exactly what was sent and returned (`critique` only in the critic arm) |
 
-`summary.json` has:
+`summary.json` has the fields below. Everywhere, `hidden_pass@1` and `public_pass@1` count failed attempt-0 API calls as 0, and `*_excl_failed` leaves those tasks out. Failed retries count 0 in both.
 - `attempt_0`: hidden and public pass@1, failed runs, the A/B/C/D cell counts and ids, calls and cost.
-- `all_tasks`, per arm: hidden pass@1 over **every** task at attempts 0–3 (A and B keep their attempt-0 result), also with failed runs counted 0 (`*_incl_failed`), public pass@1, false passes, and the whole pipeline's calls and cost (attempt 0 + the arm's retries). This is the number to put beside zero-shot and Panacea.
+- `all_tasks`, per arm: hidden and public pass@1 over **every** task at attempts 0–3 (A and B keep their attempt-0 result), each also as `*_excl_failed`, false passes, and the whole pipeline's calls and cost (attempt 0 + the arm's retries). This is the number to put beside zero-shot and Panacea.
 - `arms`, per arm, on the **paired set** only (C + D, every arm finished): the self-correction view.
   - hidden and public pass@1 at attempts 0–3, and gain over the control
   - repairs (D tasks that pass hidden at attempt 3) and `repair_rate` over D
   - breaks (C tasks that fail hidden at attempt 3)
-  - false fixes at attempt 3, regressions, failed runs
+  - false fixes at attempt 3, regressions, failed runs (total and per attempt)
   - calls, tokens, $, $ per repair
-- `all_tasks_by_source_difficulty`: cells, zero-shot and each arm's final hidden pass@1 per group. `by_source_difficulty` and `by_attempt0_failure_type`: the paired curves split the same way.
+- `all_tasks_by_source_difficulty`: cells, failed runs, zero-shot and each arm's final hidden pass@1 per group. `by_source_difficulty` and `by_attempt0_failure_type`: the paired curves split the same way.
+- `diagnostics`: truncated answers, missing or several code blocks, critiques with code, tokens per call.
+- `paired_tests`: the `feedback_vs_control` and `vs_zero_shot` families, with raw p, `p_holm` and `significant`.
 
 `python Evaluator/self_test.py` checks all of this with a scripted model on a real task, no API.

@@ -27,7 +27,7 @@ Run order: the two task notebooks (either order), then `unified_dataset.ipynb`. 
 
 ### `data/results/`: Evaluator-Optimizer loop results
 
-One folder per run of `Optimizer/loop.py` (`<date>_<provider>_<task list>`): `run_meta.json`, `attempt_0.jsonl` (one row per task), `attempt_1.jsonl` to `attempt_3.jsonl` (one row per task and arm, only for tasks that failed attempt 0's public tests) and `summary.json`. Rows hold hidden-test **counts** only, never hidden test text. Committed to git; mock runs (`*_mock_*`) are git-ignored. Fields and rules: `Optimizer/LOOP.md`. API calls and costs are in `runs/usage_log.csv`, joined on `task_id`, `arm`, `attempt`.
+One folder per run of `Optimizer/loop.py` (`<date>_<provider>_<task list>`): `run_meta.json`, `attempt_0.jsonl` (one row per task), `attempt_1.jsonl` to `attempt_3.jsonl` (one row per task and arm, only for tasks that failed attempt 0's public tests), `summary.json` and `report.md` (the same text the run prints in the terminal). Rows hold hidden-test **counts** only, never hidden test text. Committed to git; mock runs (`*_mock_*`) are git-ignored. Fields and rules: `Optimizer/LOOP.md`. API calls and costs are in `runs/usage_log.csv`, joined on `task_id`, `arm`, `attempt`.
 
 ### `data/code_generation/` and `data/bug_fixes/`: everything verified, before trimming
 

@@ -371,7 +371,7 @@ def loop(items, hidden):
     from AI_models import budget_tracker as bt
     from AI_models.providers import AdapterError
     from Optimizer import loop as lp
-    from Optimizer.report import mcnemar
+    from Optimizer import report
     from Optimizer.results import build
 
     it = next(i for i in items.values() if i["source"] == "mbpp" and i["reference"].count(i["entry_point"] + "(") == 1)
@@ -410,9 +410,9 @@ def loop(items, hidden):
                  "task_ids": [variants[t]["id"] for t in "ABCDE"]}))
             for t in "ABCDE":
                 lp.append_task(run_dir, lp.run_task(p, None, variants[t], arms, 3))
-            s = lp.summarize_run(run_dir)
+            s = report.summarize_run(run_dir)
             tables, _ = build(run_dir, write=False)
-            rows = [r for k in range(4) for r in lp.read_rows(run_dir, k)]
+            rows = [r for k in range(4) for r in report.read_rows(run_dir, k)]
             with open(bt.LOG_PATH) as f:
                 n_logged = sum(1 for _ in f) - 1
         finally:
@@ -425,11 +425,11 @@ def loop(items, hidden):
           a0["cells"] == {"A_true_pass": 1, "B_false_pass": 1, "C_hidden_only_pass": 1, "D_true_fail": 1}
           and a0["failed_runs"] == 1 and a0["went_into_arms"] == 2 and a0["false_passes"] == 1, a0)
     final = {a: s["all_tasks"][a]["hidden_pass@1_by_attempt"][-1] for a in arms}
-    incl = {a: s["all_tasks"][a]["hidden_pass@1_incl_failed_by_attempt"][-1] for a in arms}
-    check("loop: all-task hidden pass@1 at attempt 3 (A and B keep attempt 0; failed runs left out / counted 0)",
-          final == {"control": 0.25, "bare_retry": 0.75, "reflect_fix": 0.75, "critic": 0.5}
-          and incl == {"control": 0.2, "bare_retry": 0.6, "reflect_fix": 0.6, "critic": 0.4}
-          and all(s["all_tasks"][a]["hidden_pass@1_by_attempt"][0] == 0.5 for a in arms), (final, incl))
+    excl = {a: s["all_tasks"][a]["hidden_pass@1_excl_failed_by_attempt"][-1] for a in arms}
+    check("loop: all-task hidden pass@1 at attempt 3 (A and B keep attempt 0; failed runs counted 0 / left out)",
+          final == {"control": 0.2, "bare_retry": 0.6, "reflect_fix": 0.6, "critic": 0.4}
+          and excl == {"control": 0.25, "bare_retry": 0.75, "reflect_fix": 0.75, "critic": 0.5}
+          and all(s["all_tasks"][a]["hidden_pass@1_excl_failed_by_attempt"][0] == 0.5 for a in arms), (final, excl))
     st = s["arms"]
     check("loop: repairs counted over D, breaks over C",
           [(st[a]["repairs"], st[a]["n_D_repair_targets"], st[a]["breaks"], st[a]["n_C_hidden_only_pass"]) for a in arms]
@@ -455,7 +455,7 @@ def loop(items, hidden):
     main, tr = tables["main"], tables["transitions"]
     last = main[main["attempt"] == 3].set_index("system")["hidden_pass@1"].to_dict()
     check("results: main table matches summary.json (every arm, attempt 3, all tasks incl. failed runs as 0)",
-          all(last[a] == s["all_tasks"][a]["hidden_pass@1_incl_failed_by_attempt"][-1] for a in arms), last)
+          all(last[a] == s["all_tasks"][a]["hidden_pass@1_by_attempt"][-1] for a in arms), last)
     check("results: cells table matches, and transitions count the fix and the break",
           tables["cells"].iloc[0][["A_true_pass", "B_false_pass", "C_hidden_only_pass", "D_true_fail", "failed"]].tolist()
           == [1, 1, 1, 1, 1]
@@ -467,8 +467,10 @@ def loop(items, hidden):
     check("loop: the retry prompts are the frozen ones (AI_models/retry_prompts.py, FROZEN_FINGERPRINT)",
           lp.rp.fingerprint() == lp.rp.FROZEN_FINGERPRINT, lp.rp.FROZEN_DATE)
     check("report: exact McNemar (3 vs 0 discordant -> p = 0.25; none -> p = 1)",
-          mcnemar({1: 1, 2: 1, 3: 1, 4: 0}, {1: 0, 2: 0, 3: 0, 4: 0}) == (3, 0, 0.25)
-          and mcnemar({1: 1}, {1: 1})[2] == 1.0)
+          report.mcnemar({1: 1, 2: 1, 3: 1, 4: 0}, {1: 0, 2: 0, 3: 0, 4: 0}) == (3, 0, 0.25)
+          and report.mcnemar({1: 1}, {1: 1})[2] == 1.0)
+    check("report: Holm adjustment (0.01, 0.04, 0.03 -> 0.03, 0.06, 0.06)",
+          [round(p, 4) for p in report.holm([0.01, 0.04, 0.03])] == [0.03, 0.06, 0.06])
 
 
 def results_views():
@@ -477,7 +479,7 @@ def results_views():
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from Optimizer import loop as lp
+    from Optimizer import report
     from Optimizer.charts import draw_all
     from Optimizer.results import build
     from Optimizer.synthetic_run import write_run
@@ -485,9 +487,9 @@ def results_views():
     with tempfile.TemporaryDirectory() as tmp:
         run_dir = Path(tmp) / "run"
         write_run(run_dir, seed=7)
-        s = lp.summarize_run(run_dir)
+        s = report.summarize_run(run_dir)
         # a fake Panacea run in baseline.py's format, from the synthetic attempt 0 (outcomes flipped on a few)
-        a0 = lp.read_rows(run_dir, 0)
+        a0 = report.read_rows(run_dir, 0)
         pan = [{"id": r["task_id"], "score": float(i % 3 == 0) if r["failed_run"] else r["hidden_score"],
                 "n_passed": 10 if r["hidden_score"] == 1.0 else 3, "n_tests": 10, "test_pass_rate": r["hidden_test_pass_rate"],
                 "rubric_level": r["rubric_level"] if r["rubric_level"] is not None else 1, "level": r["level"] or "Wrong",
@@ -512,7 +514,7 @@ def results_views():
     curve = lambda scope, a, col="hidden_pass@1": c[(c["scope"] == scope) & (c["arm"] == a)].sort_values("attempt")[col].tolist()  # noqa: E731
     check("views: curves match summary.json (all tasks, incl. failed as 0, C + D, gain over control)",
           all(curve("all", a) == s["all_tasks"][a]["hidden_pass@1_by_attempt"]
-              and curve("all", a, "hidden_pass@1_incl_failed") == s["all_tasks"][a]["hidden_pass@1_incl_failed_by_attempt"]
+              and curve("all", a, "hidden_pass@1_excl_failed") == s["all_tasks"][a]["hidden_pass@1_excl_failed_by_attempt"]
               and curve("paired", a) == s["arms"][a]["hidden_pass@1_by_attempt"]
               and curve("paired", a, "gain_vs_control") == s["arms"][a]["gain_over_control_by_attempt"] for a in arms))
     o = tables["arm_outcomes"].set_index("arm")
@@ -543,7 +545,15 @@ def results_views():
     m, pt = tables["main"], tables["paired_tests"]
     check("views: Panacea is in the main, cells and paired-test tables",
           (m["system"] == "panacea").sum() == 1 and (tables["cells"]["system"] == "panacea").sum() == 1
-          and (pt["kind"] == "panacea").sum() == 1 + len(arms))
+          and (pt["family"] == "panacea").sum() == 1 + len(arms))
+    keep = ["comparison", "attempt", "only_first_passes", "only_second_passes", "p_exact_mcnemar", "p_holm", "significant"]
+    in_csv = pt[pt["family"].isin(["feedback_vs_control", "vs_zero_shot"])][keep].to_dict("records")
+    key = lambda r: (r["comparison"], r["attempt"])  # noqa: E731
+    check("report: summary.json's paired tests match results.py's (raw p, Holm p, verdict)",
+          sorted(in_csv, key=key) == sorted([{k: r[k] for k in keep} for r in s["paired_tests"]], key=key))
+    rep = report.render_report(s, meta, "run")
+    check("report: has run health and every arm's final hidden pass@1 from summary.json",
+          "## Run health" in rep and all(report.fmt(s["all_tasks"][a]["hidden_pass@1_by_attempt"][-1]) in rep for a in arms))
     check("views: every chart is drawn in both themes (9 for a code-generation run)",
           n_png == {"light": 9, "dark": 9}, n_png)
 
