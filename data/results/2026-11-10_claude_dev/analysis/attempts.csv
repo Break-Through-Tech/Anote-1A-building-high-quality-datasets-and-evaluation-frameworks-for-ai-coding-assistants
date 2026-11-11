@@ -1,0 +1,171 @@
+system,task_id,attempt,source,difficulty,test_format,hidden_score,hidden_passed,hidden_total,hidden_test_pass_rate,rubric_level,level,failure_type,public_score,public_passed,public_total,false_pass,failed_run,carried_forward,regression,calls,input_tokens,output_tokens,cost_usd,cell,in_arms,source_difficulty,task_type,attempt0_failure_type
+zero_shot,mbpp-471,0,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,41,543,0.008268,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+control,mbpp-471,0,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,41,543,0.008268,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+control,mbpp-471,1,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+control,mbpp-471,2,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+control,mbpp-471,3,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+bare_retry,mbpp-471,0,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,41,543,0.008268,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+bare_retry,mbpp-471,1,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+bare_retry,mbpp-471,2,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+bare_retry,mbpp-471,3,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+reflect_fix,mbpp-471,0,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,41,543,0.008268,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+reflect_fix,mbpp-471,1,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+reflect_fix,mbpp-471,2,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+reflect_fix,mbpp-471,3,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+critic,mbpp-471,0,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,41,543,0.008268,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+critic,mbpp-471,1,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+critic,mbpp-471,2,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+critic,mbpp-471,3,mbpp,medium,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/medium,code_generation,none (hidden pass)
+zero_shot,mbpp-227,0,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,39,472,0.007197,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+control,mbpp-227,0,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,39,472,0.007197,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+control,mbpp-227,1,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+control,mbpp-227,2,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+control,mbpp-227,3,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+bare_retry,mbpp-227,0,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,39,472,0.007197,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+bare_retry,mbpp-227,1,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+bare_retry,mbpp-227,2,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+bare_retry,mbpp-227,3,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+reflect_fix,mbpp-227,0,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,39,472,0.007197,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+reflect_fix,mbpp-227,1,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+reflect_fix,mbpp-227,2,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+reflect_fix,mbpp-227,3,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+critic,mbpp-227,0,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,39,472,0.007197,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+critic,mbpp-227,1,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+critic,mbpp-227,2,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+critic,mbpp-227,3,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+zero_shot,mbpp-250,0,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,52,439,0.006741,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+control,mbpp-250,0,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,52,439,0.006741,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+control,mbpp-250,1,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+control,mbpp-250,2,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+control,mbpp-250,3,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+bare_retry,mbpp-250,0,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,52,439,0.006741,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+bare_retry,mbpp-250,1,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+bare_retry,mbpp-250,2,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+bare_retry,mbpp-250,3,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+reflect_fix,mbpp-250,0,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,52,439,0.006741,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+reflect_fix,mbpp-250,1,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+reflect_fix,mbpp-250,2,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+reflect_fix,mbpp-250,3,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+critic,mbpp-250,0,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,52,439,0.006741,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+critic,mbpp-250,1,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+critic,mbpp-250,2,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+critic,mbpp-250,3,mbpp,hard,assert_list,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,mbpp/hard,code_generation,none (hidden pass)
+zero_shot,livecodebench-abc390_a,0,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,False,,1,352,99,0.002541,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+control,livecodebench-abc390_a,0,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,False,,1,352,99,0.002541,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+control,livecodebench-abc390_a,1,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+control,livecodebench-abc390_a,2,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+control,livecodebench-abc390_a,3,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+bare_retry,livecodebench-abc390_a,0,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,False,,1,352,99,0.002541,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+bare_retry,livecodebench-abc390_a,1,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+bare_retry,livecodebench-abc390_a,2,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+bare_retry,livecodebench-abc390_a,3,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+reflect_fix,livecodebench-abc390_a,0,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,False,,1,352,99,0.002541,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+reflect_fix,livecodebench-abc390_a,1,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+reflect_fix,livecodebench-abc390_a,2,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+reflect_fix,livecodebench-abc390_a,3,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+critic,livecodebench-abc390_a,0,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,False,,1,352,99,0.002541,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+critic,livecodebench-abc390_a,1,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+critic,livecodebench-abc390_a,2,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+critic,livecodebench-abc390_a,3,livecodebench,easy,stdin_io,1.0,10,10,1.0,4,Pass,,1.0,4,4,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+zero_shot,livecodebench-3705,0,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,705,503,0.00966,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+control,livecodebench-3705,0,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,705,503,0.00966,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+control,livecodebench-3705,1,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+control,livecodebench-3705,2,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+control,livecodebench-3705,3,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+bare_retry,livecodebench-3705,0,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,705,503,0.00966,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+bare_retry,livecodebench-3705,1,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+bare_retry,livecodebench-3705,2,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+bare_retry,livecodebench-3705,3,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+reflect_fix,livecodebench-3705,0,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,705,503,0.00966,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+reflect_fix,livecodebench-3705,1,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+reflect_fix,livecodebench-3705,2,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+reflect_fix,livecodebench-3705,3,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+critic,livecodebench-3705,0,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,705,503,0.00966,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+critic,livecodebench-3705,1,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+critic,livecodebench-3705,2,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+critic,livecodebench-3705,3,livecodebench,easy,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/easy,code_generation,none (hidden pass)
+zero_shot,livecodebench-abc400_c,0,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,False,,1,302,1554,0.024216,B_false_pass,False,livecodebench/medium,code_generation,timeout
+control,livecodebench-abc400_c,0,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,False,,1,302,1554,0.024216,B_false_pass,False,livecodebench/medium,code_generation,timeout
+control,livecodebench-abc400_c,1,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,True,,0,0,0,0.0,B_false_pass,False,livecodebench/medium,code_generation,timeout
+control,livecodebench-abc400_c,2,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,True,,0,0,0,0.0,B_false_pass,False,livecodebench/medium,code_generation,timeout
+control,livecodebench-abc400_c,3,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,True,,0,0,0,0.0,B_false_pass,False,livecodebench/medium,code_generation,timeout
+bare_retry,livecodebench-abc400_c,0,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,False,,1,302,1554,0.024216,B_false_pass,False,livecodebench/medium,code_generation,timeout
+bare_retry,livecodebench-abc400_c,1,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,True,,0,0,0,0.0,B_false_pass,False,livecodebench/medium,code_generation,timeout
+bare_retry,livecodebench-abc400_c,2,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,True,,0,0,0,0.0,B_false_pass,False,livecodebench/medium,code_generation,timeout
+bare_retry,livecodebench-abc400_c,3,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,True,,0,0,0,0.0,B_false_pass,False,livecodebench/medium,code_generation,timeout
+reflect_fix,livecodebench-abc400_c,0,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,False,,1,302,1554,0.024216,B_false_pass,False,livecodebench/medium,code_generation,timeout
+reflect_fix,livecodebench-abc400_c,1,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,True,,0,0,0,0.0,B_false_pass,False,livecodebench/medium,code_generation,timeout
+reflect_fix,livecodebench-abc400_c,2,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,True,,0,0,0,0.0,B_false_pass,False,livecodebench/medium,code_generation,timeout
+reflect_fix,livecodebench-abc400_c,3,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,True,,0,0,0,0.0,B_false_pass,False,livecodebench/medium,code_generation,timeout
+critic,livecodebench-abc400_c,0,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,False,,1,302,1554,0.024216,B_false_pass,False,livecodebench/medium,code_generation,timeout
+critic,livecodebench-abc400_c,1,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,True,,0,0,0,0.0,B_false_pass,False,livecodebench/medium,code_generation,timeout
+critic,livecodebench-abc400_c,2,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,True,,0,0,0,0.0,B_false_pass,False,livecodebench/medium,code_generation,timeout
+critic,livecodebench-abc400_c,3,livecodebench,medium,stdin_io,0.0,7,10,0.7,3,Mostly Pass,timeout,1.0,3,3,True,False,True,,0,0,0,0.0,B_false_pass,False,livecodebench/medium,code_generation,timeout
+zero_shot,livecodebench-3794,0,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,654,1475,0.024087,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+control,livecodebench-3794,0,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,654,1475,0.024087,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+control,livecodebench-3794,1,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+control,livecodebench-3794,2,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+control,livecodebench-3794,3,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+bare_retry,livecodebench-3794,0,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,654,1475,0.024087,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+bare_retry,livecodebench-3794,1,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+bare_retry,livecodebench-3794,2,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+bare_retry,livecodebench-3794,3,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+reflect_fix,livecodebench-3794,0,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,654,1475,0.024087,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+reflect_fix,livecodebench-3794,1,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+reflect_fix,livecodebench-3794,2,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+reflect_fix,livecodebench-3794,3,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+critic,livecodebench-3794,0,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,False,,1,654,1475,0.024087,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+critic,livecodebench-3794,1,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+critic,livecodebench-3794,2,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+critic,livecodebench-3794,3,livecodebench,medium,functional_io,1.0,10,10,1.0,4,Pass,,1.0,3,3,False,False,True,,0,0,0,0.0,A_true_pass,False,livecodebench/medium,code_generation,none (hidden pass)
+zero_shot,livecodebench-arc190_a,0,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,3,4,False,False,False,,1,886,4096,0.064098,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+control,livecodebench-arc190_a,0,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,3,4,False,False,False,,1,886,4096,0.064098,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+control,livecodebench-arc190_a,1,livecodebench,hard,stdin_io,0.0,0,10,0.0,1,Wrong,wrong_answer,0.0,0,4,False,False,False,True,1,886,4096,0.064098,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+control,livecodebench-arc190_a,2,livecodebench,hard,stdin_io,0.0,0,10,0.0,0,Error,syntax_error,0.0,0,4,False,False,False,False,1,886,1111,0.019323,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+control,livecodebench-arc190_a,3,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,2,4,False,False,False,False,1,886,4096,0.064098,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+bare_retry,livecodebench-arc190_a,0,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,3,4,False,False,False,,1,886,4096,0.064098,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+bare_retry,livecodebench-arc190_a,1,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,3,4,False,False,False,False,1,3322,1420,0.031266,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+bare_retry,livecodebench-arc190_a,2,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,3,4,False,False,False,False,1,1804,1438,0.026982,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+bare_retry,livecodebench-arc190_a,3,livecodebench,hard,stdin_io,0.0,4,10,0.4,2,Partial Pass,wrong_answer,0.0,3,4,False,False,False,False,1,1766,1548,0.028518,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+reflect_fix,livecodebench-arc190_a,0,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,3,4,False,False,False,,1,886,4096,0.064098,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+reflect_fix,livecodebench-arc190_a,1,livecodebench,hard,stdin_io,0.0,0,10,0.0,0,Error,syntax_error,0.0,0,4,False,False,False,True,1,3474,4096,0.071862,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+reflect_fix,livecodebench-arc190_a,2,livecodebench,hard,stdin_io,0.0,0,10,0.0,1,Wrong,wrong_answer,0.0,0,4,False,False,False,False,1,5161,4096,0.076923,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+reflect_fix,livecodebench-arc190_a,3,livecodebench,hard,stdin_io,0.0,0,10,0.0,1,Wrong,wrong_answer,0.0,0,4,False,False,False,False,1,4455,4096,0.074805,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+critic,livecodebench-arc190_a,0,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,3,4,False,False,False,,1,886,4096,0.064098,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+critic,livecodebench-arc190_a,1,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,3,4,False,False,False,False,2,7803,3992,0.083289,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+critic,livecodebench-arc190_a,2,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,3,4,False,False,False,False,2,6352,2234,0.052566,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+critic,livecodebench-arc190_a,3,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,3,4,False,False,False,False,2,6102,2822,0.060636,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+zero_shot,livecodebench-abc397_g,0,livecodebench,hard,stdin_io,0.0,4,10,0.4,2,Partial Pass,wrong_answer,0.0,2,3,False,False,False,,1,501,4096,0.062943,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+control,livecodebench-abc397_g,0,livecodebench,hard,stdin_io,0.0,4,10,0.4,2,Partial Pass,wrong_answer,0.0,2,3,False,False,False,,1,501,4096,0.062943,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+control,livecodebench-abc397_g,1,livecodebench,hard,stdin_io,0.0,0,10,0.0,1,Wrong,wrong_answer,0.0,0,3,False,False,False,True,1,501,4096,0.062943,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+control,livecodebench-abc397_g,2,livecodebench,hard,stdin_io,0.0,0,10,0.0,0,Error,syntax_error,0.0,0,3,False,False,False,False,1,501,4096,0.062943,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+control,livecodebench-abc397_g,3,livecodebench,hard,stdin_io,0.0,0,10,0.0,0,Error,syntax_error,0.0,0,3,False,False,False,False,1,501,1138,0.018573,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+bare_retry,livecodebench-abc397_g,0,livecodebench,hard,stdin_io,0.0,4,10,0.4,2,Partial Pass,wrong_answer,0.0,2,3,False,False,False,,1,501,4096,0.062943,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+bare_retry,livecodebench-abc397_g,1,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,1,3,False,False,False,True,1,1043,2417,0.039384,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+bare_retry,livecodebench-abc397_g,2,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,1,3,False,False,False,False,1,2046,1477,0.028293,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+bare_retry,livecodebench-abc397_g,3,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,1,3,False,False,False,False,1,1190,1537,0.026625,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+reflect_fix,livecodebench-abc397_g,0,livecodebench,hard,stdin_io,0.0,4,10,0.4,2,Partial Pass,wrong_answer,0.0,2,3,False,False,False,,1,501,4096,0.062943,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+reflect_fix,livecodebench-abc397_g,1,livecodebench,hard,stdin_io,0.0,0,10,0.0,0,Error,syntax_error,0.0,0,3,False,False,False,True,1,1177,4096,0.064971,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+reflect_fix,livecodebench-abc397_g,2,livecodebench,hard,stdin_io,0.0,0,10,0.0,1,Wrong,wrong_answer,0.0,1,3,False,False,False,False,1,4777,1304,0.033891,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+reflect_fix,livecodebench-abc397_g,3,livecodebench,hard,stdin_io,0.0,0,10,0.0,0,Error,syntax_error,0.0,0,3,False,False,False,False,1,1651,4096,0.066393,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+critic,livecodebench-abc397_g,0,livecodebench,hard,stdin_io,0.0,4,10,0.4,2,Partial Pass,wrong_answer,0.0,2,3,False,False,False,,1,501,4096,0.062943,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+critic,livecodebench-abc397_g,1,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,1,3,False,False,False,True,2,2864,1290,0.027942,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+critic,livecodebench-abc397_g,2,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,1,3,False,False,False,False,2,3269,2143,0.041952,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+critic,livecodebench-abc397_g,3,livecodebench,hard,stdin_io,0.0,1,10,0.1,2,Partial Pass,wrong_answer,0.0,1,3,False,False,False,False,2,3570,1967,0.040215,D_true_fail,True,livecodebench/hard,code_generation,wrong_answer
+zero_shot,livecodebench-3717,0,livecodebench,hard,functional_io,0.0,0,10,0.0,0,Error,runtime_error,0.0,0,2,False,False,False,,1,582,4096,0.063186,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+control,livecodebench-3717,0,livecodebench,hard,functional_io,0.0,0,10,0.0,0,Error,runtime_error,0.0,0,2,False,False,False,,1,582,4096,0.063186,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+control,livecodebench-3717,1,livecodebench,hard,functional_io,0.0,0,10,0.0,0,Error,runtime_error,0.0,0,2,False,False,False,False,1,582,3433,0.053241,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+control,livecodebench-3717,2,livecodebench,hard,functional_io,0.0,0,10,0.0,0,Error,runtime_error,0.0,0,2,False,False,False,False,1,582,1283,0.020991,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+control,livecodebench-3717,3,livecodebench,hard,functional_io,0.0,0,10,0.0,0,Error,load_error,0.0,0,2,False,False,False,False,1,582,1642,0.026376,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+bare_retry,livecodebench-3717,0,livecodebench,hard,functional_io,0.0,0,10,0.0,0,Error,runtime_error,0.0,0,2,False,False,False,,1,582,4096,0.063186,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+bare_retry,livecodebench-3717,1,livecodebench,hard,functional_io,0.0,0,10,0.0,0,Error,runtime_error,0.0,0,2,False,False,False,False,1,1269,1373,0.024402,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+bare_retry,livecodebench-3717,2,livecodebench,hard,functional_io,0.0,0,10,0.0,0,Error,runtime_error,0.0,0,2,False,False,False,False,1,1414,4096,0.065682,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+bare_retry,livecodebench-3717,3,livecodebench,hard,functional_io,0.0,0,10,0.0,0,Error,runtime_error,0.0,0,2,False,False,False,False,1,2577,1717,0.033486,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+reflect_fix,livecodebench-3717,0,livecodebench,hard,functional_io,0.0,0,10,0.0,0,Error,runtime_error,0.0,0,2,False,False,False,,1,582,4096,0.063186,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+reflect_fix,livecodebench-3717,1,livecodebench,hard,functional_io,0.0,7,10,0.7,3,Mostly Pass,wrong_answer,0.0,0,2,False,False,False,False,1,1443,2260,0.038229,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+reflect_fix,livecodebench-3717,2,livecodebench,hard,functional_io,0.0,7,10,0.7,3,Mostly Pass,wrong_answer,0.0,0,2,False,False,False,False,1,2792,1512,0.031056,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+reflect_fix,livecodebench-3717,3,livecodebench,hard,functional_io,0.0,0,10,0.0,0,Error,runtime_error,0.0,0,2,False,False,False,True,1,1944,2071,0.036897,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+critic,livecodebench-3717,0,livecodebench,hard,functional_io,0.0,0,10,0.0,0,Error,runtime_error,0.0,0,2,False,False,False,,1,582,4096,0.063186,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+critic,livecodebench-3717,1,livecodebench,hard,functional_io,0.0,7,10,0.7,3,Mostly Pass,wrong_answer,0.0,1,2,False,False,False,False,2,3253,1697,0.035214,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+critic,livecodebench-3717,2,livecodebench,hard,functional_io,1.0,10,10,1.0,4,Pass,,1.0,2,2,False,False,False,False,2,4177,1893,0.040926,D_true_fail,True,livecodebench/hard,code_generation,runtime_error
+critic,livecodebench-3717,3,livecodebench,hard,functional_io,1.0,10,10,1.0,4,Pass,,1.0,2,2,False,False,True,False,0,0,0,0.0,D_true_fail,True,livecodebench/hard,code_generation,runtime_error

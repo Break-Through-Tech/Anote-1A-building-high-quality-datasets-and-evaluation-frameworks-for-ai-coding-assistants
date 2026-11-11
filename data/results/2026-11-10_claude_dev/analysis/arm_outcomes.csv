@@ -1,0 +1,5 @@
+arm,attempt,n_paired,n_D,n_C,repairs,repair_rate,repair_ci_low,repair_ci_high,breaks,break_rate,public_fixes,false_fixes,false_fixes_from_D,false_fixes_from_C,false_fix_share,regression_events,tasks_with_regression,retries_that_ran,regression_rate_per_retry,failed_api_calls,calls,input_tokens,output_tokens,cost_usd,cost_per_repair_usd,tokens_per_repair,calls_per_repair,pipeline_calls,pipeline_cost_usd,extra_repairs_vs_control,extra_cost_vs_control_usd,extra_cost_per_extra_repair_usd
+control,3,3,3,0,0,0.0,0.0,0.562,0,,0,0,0,0,,2,2,9,0.222,0,9,5907,24991,0.3926,,,,19,0.6655,0,0.0,
+bare_retry,3,3,3,0,0,0.0,0.0,0.562,0,,0,0,0,0,,1,1,9,0.111,0,9,16431,17023,0.3046,,,,19,0.5775,0,-0.088,
+reflect_fix,3,3,3,0,0,0.0,0.0,0.562,0,,0,0,0,0,,3,3,9,0.333,0,9,26874,27627,0.495,,,,19,0.7679,0,0.1024,
+critic,3,3,3,0,1,0.333,0.061,0.792,0,,1,0,0,0,0.0,1,1,8,0.125,0,16,37390,18038,0.3827,0.3827,55428.0,16.0,26,0.6556,1,-0.0099,-0.0099
