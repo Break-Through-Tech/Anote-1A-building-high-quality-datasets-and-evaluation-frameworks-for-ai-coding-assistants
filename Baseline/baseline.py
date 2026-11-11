@@ -120,7 +120,7 @@ def run_one(provider_name: str, client, item: dict, level: str = "raw") -> dict:
     start = time.time()
     tokens = in_tokens = None
     try:
-        text, tokens, model_used, in_tokens = p["call"](client, {**item, "prompt": prompt}, p["config"])
+        text, tokens, model_used, in_tokens = p["call"](client, {**item, "prompt": prompt}, p["config"])[:4]
     except AdapterError as e:
         # The provider ran but gave no usable answer. Count it as a failed run (score 0 on both test sets),
         # not model output, and leave it out of the rubric levels.

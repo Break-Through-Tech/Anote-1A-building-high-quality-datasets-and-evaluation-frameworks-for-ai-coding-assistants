@@ -31,11 +31,11 @@ A task's rows are written once the whole task is done, so a crash or budget stop
 a task. See Optimizer/LOOP.md for the row fields.
 
 Usage (from the repo root):
-    python Optimizer/loop.py mock --ids smoke.txt          # no API: checks the plumbing, numbers mean nothing
-    python Optimizer/loop.py claude --ids pilot.txt        # the pilot
-    python Optimizer/loop.py claude --ids pilot.txt --resume   # continue after a stop
-    python Optimizer/loop.py claude --ids pilot.txt --arms control reflect_fix
-    python Optimizer/loop.py --summarize data/results/<run>    # rebuild summary.json only
+    python Optimizer/loop.py mock --split dev                     # no API: checks the plumbing
+    python Optimizer/loop.py claude --split dev                   # dev pilot: 10 pool tasks not in eval
+    python Optimizer/loop.py claude --split dev --resume          # continue after a stop
+    python Optimizer/loop.py claude --split test --ids <list>     # the test run, once prompts are frozen
+    python Optimizer/loop.py --summarize data/results/<run>       # rebuild summary.json only
 """
 
 import argparse
@@ -43,6 +43,7 @@ import datetime
 import hashlib
 import json
 import os
+import random
 import subprocess
 import sys
 import time
@@ -57,7 +58,8 @@ try:
 except ImportError:
     pass
 
-from Evaluator.evaluator import SCORING_VERSION, evaluate, extract_code, format_feedback, load_items
+from Evaluator.evaluator import (SCORING_VERSION, _PYTHON_TAGS, _fenced_blocks, evaluate, extract_code,
+                                 format_feedback, load_items)
 from AI_models.prompts import build_prompt
 from AI_models.providers import PROVIDERS, AdapterError
 from AI_models import retry_prompts as rp
@@ -67,6 +69,33 @@ from Baseline.baseline import read_task_list, select_ids
 RESULTS_DIR = REPO_ROOT / "data" / "results"
 RETRIES = 3
 ZERO_SHOT = "zero_shot"
+POOL_PATH = REPO_ROOT / "data" / "unified" / "unified_pool.jsonl"
+FULL_PRIVATE_PATH = REPO_ROOT / "data" / "code_generation" / "code_generation_private_tests.jsonl"
+DEV_SEED = 0
+DEV_LAYOUT = {("mbpp", "medium", "assert_list"): 1, ("mbpp", "hard", "assert_list"): 2,
+              ("livecodebench", "easy", "stdin_io"): 1, ("livecodebench", "easy", "functional_io"): 1,
+              ("livecodebench", "medium", "stdin_io"): 1, ("livecodebench", "medium", "functional_io"): 1,
+              ("livecodebench", "hard", "stdin_io"): 2, ("livecodebench", "hard", "functional_io"): 1}
+
+
+def dev_items():
+    """DEV_LAYOUT's stratified sample of pool tasks not in eval, with >= 5 distinct hidden tests attached."""
+    if not FULL_PRIVATE_PATH.exists():
+        sys.exit(f"{FULL_PRIVATE_PATH} not found. Run notebooks/code_generation_EDA_pipeline.ipynb to build it.")
+    eval_ids = {it["id"] for it in load_items(task_type=None, scorable_only=False)}
+    pool = {it["id"]: it for it in load_items(POOL_PATH) if it["id"] not in eval_ids}
+    hidden = {}
+    with open(FULL_PRIVATE_PATH) as f:
+        for line in f:
+            r = json.loads(line)
+            if r["id"] in pool and len({json.dumps(t, sort_keys=True) for t in r["private_test_cases"]}) >= 5:
+                hidden[r["id"]] = r["private_test_cases"]
+    rng, picked = random.Random(DEV_SEED), []
+    for (src, diff, fmt), n in DEV_LAYOUT.items():
+        group = [it for i, it in pool.items() if i in hidden
+                 and (it["source"], it["metadata"].get("difficulty"), it["test_format"]) == (src, diff, fmt)]
+        picked += rng.sample(group, n)
+    return [{**it, "private_tests": hidden[it["id"]]} for it in picked]
 
 
 # =====================================================================
@@ -104,18 +133,20 @@ def ask(p, client, item, prompt, system, task_id, arm, attempt, call_type):
     bt.check_budget()  # raises BudgetExceeded at the stop limit
     start = time.time()
     try:
-        text, out_tokens, model_used, in_tokens = p["call"](
-            client, {**item, "prompt": prompt, "_arm": arm, "_attempt": attempt, "_role": call_type}, cfg)
+        res = p["call"](client, {**item, "prompt": prompt, "_arm": arm, "_attempt": attempt, "_role": call_type}, cfg)
+        text, out_tokens, model_used, in_tokens = res[:4]
+        stop_reason = res[4] if len(res) > 4 else None
         error = None
     except AdapterError as e:  # the SDK already retried temporary errors; no answer, but money may be spent
         text, out_tokens, in_tokens, model_used, error = "", None, None, cfg["model"], f"adapter_error: {e}"
+        stop_reason = None
     latency = round(time.time() - start, 2)
     row = bt.record_call(model_used or cfg["model"], input_tokens=in_tokens, output_tokens=out_tokens,
                          prompt_text=system + "\n" + prompt, output_text=text, latency_s=latency)
     bt.clear_context()
     return text, error, {"calls": 1, "output_tokens": row["output_tokens"], "input_tokens": row["input_tokens"],
                          "tokens_estimated": int(row["estimated"]), "cost_usd": row["cost_usd"],
-                         "latency_s": latency}
+                         "latency_s": latency, "stop_reason": stop_reason}
 
 
 USAGE_KEYS = ("calls", "output_tokens", "input_tokens", "tokens_estimated", "cost_usd", "latency_s")
@@ -159,6 +190,8 @@ def make_row(item, arm, attempt, prompt, output, public, hidden, usage, critique
         # a failed run: an API error is not the model making the code worse)
         "regression": None if prev_row is None or failed else hid_rate < prev_row["hidden_test_pass_rate"],
         "carried_forward": False,
+        "n_python_blocks": sum(tag in _PYTHON_TAGS for tag, _, _ in _fenced_blocks(output or "")),
+        "critique_has_code": None if critique is None else ("```" in critique or "def " in critique),
         "failed_run": failed, "error": error or (hidden["error"] if hidden["error"] else None),
         **usage,
         "prompt": prompt, "critique": critique, "output": output,
@@ -209,7 +242,7 @@ def run_task(p, client, item, arms, retries):
                 raise ValueError(arm)
             if error is None:
                 text, error, u = ask(p, client, item, prompt, rp.GENERATOR_SYSTEM, tid, arm, k, "generator")
-                usage = _add_usage(usage, u)
+                usage = {**_add_usage(usage, u), "stop_reason": u["stop_reason"]}
             else:
                 text = ""
             public, hidden = score(item, text)
@@ -362,6 +395,17 @@ def summarize_run(run_dir: Path) -> dict:
 
     # MBPP and LiveCodeBench difficulty are different scales: always grouped by source too
     src_diff = lambda r: f"{r['source']}/{r['difficulty']}"
+    ran = [r for r in a0 + list(by_key.values()) if r["calls"] and not r["carried_forward"]]
+    where = lambda r: f"{r['task_id']}/{r['arm']}/{r['attempt']}"
+    diagnostics = {
+        "truncated": [where(r) for r in ran if r.get("stop_reason") == "max_tokens"],
+        "no_python_block": [where(r) for r in ran if not r["failed_run"] and r.get("n_python_blocks") == 0],
+        "several_python_blocks": [where(r) for r in ran if (r.get("n_python_blocks") or 0) > 1],
+        "critiques_with_code": [where(r) for r in ran if r.get("critique_has_code")],
+        "tokens_per_call": {a: {"input": round(sum(r["input_tokens"] for r in g) / sum(r["calls"] for r in g)),
+                                "output": round(sum(r["output_tokens"] for r in g) / sum(r["calls"] for r in g))}
+                            for a in [ZERO_SHOT] + arms if (g := [r for r in ran if r["arm"] == a])},
+    }
     summary = {
         "scoring_version": meta["scoring_version"], "model": meta["model"], "n_tasks": len(a0),
         "attempt_0": {
@@ -378,6 +422,7 @@ def summarize_run(run_dir: Path) -> dict:
         "all_tasks": all_tasks,
         "paired_task_ids": paired,
         "incomplete_task_ids": incomplete,
+        "diagnostics": diagnostics,
         "arms": per_arm,
         "all_tasks_by_source_difficulty": {
             g: {"n": len(t), "cells": {c: sum(cell_of(a0_by_id[x]) == c for x in t) for c in CELLS.values()},
@@ -407,6 +452,11 @@ def print_summary(s: dict):
     print(f"  A true pass {c['A_true_pass']} | B false pass {c['B_false_pass']} | "
           f"C hidden-only pass {c['C_hidden_only_pass']} | D true fail {c['D_true_fail']} "
           f"-> {a['went_into_arms']} went into the arms")
+    d = s.get("diagnostics")
+    if d:
+        print(f"  diagnostics: {len(d['truncated'])} truncated, {len(d['no_python_block'])} without a code block, "
+              f"{len(d['several_python_blocks'])} with several, {len(d['critiques_with_code'])} critiques with code; "
+              f"tokens per call {d['tokens_per_call']}")
     if not s["all_tasks"]:
         return
     print("\nAll tasks, hidden pass@1 at attempts 0-3 (A and B keep attempt 0):")
@@ -436,6 +486,8 @@ def main():
     ap = argparse.ArgumentParser(description="Evaluator-Optimizer loop v1.")
     # Claude only (the experiment model) plus the no-API mock; opensource was dropped from the loop (2026-11-03).
     ap.add_argument("provider", nargs="?", choices=["claude", "mock"])
+    ap.add_argument("--split", choices=["dev", "test"],
+                    help="dev: 10 stratified pool tasks not in eval (seed 0); test: the eval tasks in --ids")
     ap.add_argument("--ids", help="task list in data/unified/task_lists/ (e.g. pilot.txt)")
     ap.add_argument("--arms", nargs="+", choices=list(rp.ARMS), default=list(rp.ARMS))
     ap.add_argument("--retries", type=int, default=RETRIES)
@@ -448,12 +500,14 @@ def main():
     if args.summarize:
         print_summary(summarize_run(Path(args.summarize)))
         return
-    if not args.provider or not args.ids:
-        ap.error("provider and --ids are required (every arm and run must use a fixed task list)")
+    if not args.provider or not args.split:
+        ap.error("provider and --split are required")
+    if (args.split == "test") != bool(args.ids):
+        ap.error("--split test needs --ids; --split dev picks its own tasks")
 
     p = MOCK if args.provider == "mock" else PROVIDERS[args.provider]
     model = p["config"]["model"]
-    stem = Path(args.ids).stem
+    stem = args.split + (f"_{Path(args.ids).stem}" if args.ids else "")
     name = args.name or f"{datetime.date.today().isoformat()}_{args.provider}_{stem}"
     run_dir = Path(args.out).resolve() / name
 
@@ -465,11 +519,11 @@ def main():
     if p["api_key_env"] and not key:
         sys.exit(f"{p['api_key_env']} not set. Copy .env.example to .env and fill it in.")
 
-    if args.provider != "mock" and rp.fingerprint() != rp.FROZEN_FINGERPRINT:
+    if args.provider != "mock" and args.split == "test" and rp.fingerprint() != rp.FROZEN_FINGERPRINT:
         sys.exit("AI_models/retry_prompts.py changed since the prompts were frozen "
                  f"({rp.FROZEN_DATE}). Changing them is a team decision: see that file's docstring.")
-    items = select_ids(load_items(), read_task_list(args.ids))
-    meta = {"scoring_version": SCORING_VERSION, "provider": args.provider, "model": model,
+    items = dev_items() if args.split == "dev" else select_ids(load_items(), read_task_list(args.ids))
+    meta = {"scoring_version": SCORING_VERSION, "split": args.split, "provider": args.provider, "model": model,
             "max_tokens": p["config"].get("max_tokens"), "temperature": p["config"].get("temperature"),
             "ids_file": args.ids, "task_ids": [it["id"] for it in items], "arms": args.arms,
             "retries": args.retries, "rule": "copy-forward after a public pass",
@@ -483,7 +537,7 @@ def main():
         if not args.resume:
             sys.exit(f"{run_dir} already has results. Use --resume to continue it, or --name for a new run.")
         old = json.loads(meta_path.read_text())
-        for k in ("scoring_version", "provider", "model", "max_tokens", "temperature", "task_ids", "arms", "retries",
+        for k in ("scoring_version", "split", "provider", "model", "max_tokens", "temperature", "task_ids", "arms", "retries",
                   "retry_prompts_fingerprint"):
             if old.get(k) != meta[k]:
                 sys.exit(f"Can't resume {run_dir}: {k} differs ({old.get(k)!r} vs {meta[k]!r}).")

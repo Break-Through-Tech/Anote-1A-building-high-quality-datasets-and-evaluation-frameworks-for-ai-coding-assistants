@@ -34,10 +34,11 @@ Rules (same as prompts.py):
 
 They are used by the Evaluator-Optimizer loop: python Optimizer/loop.py (see Optimizer/LOOP.md).
 
-FROZEN on 2026-11-04, before the pilot: the experiments use only the 100 eval tasks, so the prompts are
-not tuned on them (open question 9). fingerprint() hashes every prompt below rendered on fixed sample
-inputs; FROZEN_FINGERPRINT is that hash. A real loop run refuses to start if they differ, every run records
-the fingerprint in run_meta.json, and Evaluator/self_test.py checks it. Changing a prompt is a team decision:
+FROZEN on 2026-11-04, before the pilot, so the prompts are not tuned on the 100 eval tasks. They may change
+during dev runs (--split dev, pool tasks not in eval); the test split stays frozen. fingerprint() hashes every
+prompt below rendered on fixed sample inputs; FROZEN_FINGERPRINT is that hash. A --split test run refuses to
+start if they differ, every run records the fingerprint in run_meta.json, and Evaluator/self_test.py checks it,
+so the self-test fails after a prompt edit until the fingerprint is updated. Changing a prompt is a team decision:
 change it, then update FROZEN_FINGERPRINT and FROZEN_DATE with the reason, and never compare runs across it.
 """
 

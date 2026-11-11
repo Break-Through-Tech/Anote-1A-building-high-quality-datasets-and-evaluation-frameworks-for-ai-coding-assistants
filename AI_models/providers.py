@@ -62,7 +62,7 @@ def call_claude(client, item, cfg):
         raise AdapterError(f"{type(e).__name__}: {e}") from e
     block = resp.content[0] if resp.content else None
     text = block.text if block is not None and hasattr(block, "text") else ""
-    return text, resp.usage.output_tokens, cfg["model"], resp.usage.input_tokens
+    return text, resp.usage.output_tokens, cfg["model"], resp.usage.input_tokens, resp.stop_reason
 
 
 # Call an open-source model over OpenRouter (OpenAI-compatible request shape).

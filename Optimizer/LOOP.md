@@ -31,13 +31,16 @@ Every setting is shared by every arm: temperature 0.5 (so the control really res
 
 ## Running it
 ```bash
-python Optimizer/loop.py mock --ids smoke.txt              # no API: checks the plumbing (numbers mean nothing)
-python Optimizer/loop.py claude --ids pilot.txt            # the pilot (10 tasks)
-python Optimizer/loop.py claude --ids pilot.txt --resume   # continue after a budget stop or Ctrl-C
-python Optimizer/loop.py --summarize data/results/<run>    # rebuild summary.json
-python Baseline/baseline.py panacea --ids pilot.txt        # Panacea's zero-shot arm, same tasks
+python Optimizer/loop.py mock --split dev                     # no API: checks the plumbing
+python Optimizer/loop.py claude --split dev                   # dev pilot: 10 pool tasks not in eval
+python Optimizer/loop.py claude --split dev --resume          # continue after a stop
+python Optimizer/loop.py claude --split test --ids <list>     # the test run, once prompts are frozen
+python Optimizer/loop.py --summarize data/results/<run>       # rebuild summary.json only
+python Baseline/baseline.py panacea --ids <list>              # Panacea's zero-shot arm, same tasks as the test run
 python Optimizer/report.py data/results/<run> panacea_run.json --out data/results/<run>/report.md
 ```
+
+`--split dev` needs `data/code_generation/code_generation_private_tests.jsonl` (git-ignored; built by the code-generation notebook). Dev runs check the plumbing and measure tokens; they are never reported as results. The frozen-prompt check applies to `--split test` only.
 
 **Detailed tables and charts:** `python Optimizer/results.py data/results/<run> panacea_run.json --charts` writes CSVs to `data/results/<run>/analysis/` and PNGs to `analysis/charts/` (leave out `--charts` for CSVs only). `notebooks/results_analysis.ipynb` shows the same tables and charts. The tables cover:
 - every system at every attempt: hidden passed, rubric levels, false passes, cost
@@ -69,14 +72,14 @@ Run every step from the repo root, in order, and stop at the first one that fail
 2. **Nobody else is running a paid job right now** (ask the team). The $47 stop only sees your local log.
 3. **Setup:** `pip install -r requirements.txt` (pins `anthropic<1`), and `.env` holds `ANTHROPIC_API_KEY`.
 4. **Checks pass:** `python Evaluator/self_test.py` ends with `ALL TESTS PASSED`. That includes the check that the retry prompts are still the frozen ones (see below).
-5. **Plumbing:** `python Optimizer/loop.py mock --ids pilot.txt` finishes. It makes no API calls and writes no real usage-log rows.
+5. **Plumbing:** `python Optimizer/loop.py mock --split dev` finishes. It makes no API calls and writes no real usage-log rows.
 6. **Money:** check what's been spent with `python -c "from AI_models.budget_tracker import total_spent as t; print(t())"`. Estimate the new run (see "Notes on running"). Spent plus estimate must stay under $47.
-7. **Run:** `python Optimizer/loop.py claude --ids pilot.txt`. After a budget stop or Ctrl-C, continue with `--resume`.
+7. **Run:** `python Optimizer/loop.py claude --split dev`. After a budget stop or Ctrl-C, continue with `--resume`.
 8. **Right after:** commit and push `runs/usage_log.csv` and the new `data/results/<run>/` folder.
-9. **Panacea, same task list:** in `.venv-panacea`, run `python Baseline/baseline.py panacea --ids pilot.txt` (see `panacea_config.md`). Then do step 8 again for the log and `panacea_run.json`.
+9. **Panacea, test split only:** skip this for dev runs, because `baseline.py` can't load pool tasks. For the test run, in `.venv-panacea`, run `python Baseline/baseline.py panacea --ids <list>` with the same list (see `panacea_config.md`). Then do step 8 again for the log and `panacea_run.json`.
 10. **Results:** run `python Optimizer/results.py data/results/<run> panacea_run.json --charts`, and open `notebooks/results_analysis.ipynb`.
 
-**Frozen retry prompts (decided 2026-11-04):** the retry prompts in `AI_models/retry_prompts.py` were frozen before the pilot, because the experiments use the 100 eval tasks and prompts tuned on them would bias the result (open question 9). Every run records `retry_prompts_fingerprint` in `run_meta.json`. A real run refuses to start if the prompts differ from `FROZEN_FINGERPRINT`, and `--resume` refuses a run made with other prompts. Changing a prompt is a team decision: update `FROZEN_FINGERPRINT` and `FROZEN_DATE` with the reason, and never compare runs across the change.
+**Frozen retry prompts (decided 2026-11-04; dev split added 2026-11-10):** the retry prompts in `AI_models/retry_prompts.py` stay frozen for the test split, because prompts tuned on the 100 eval tasks would bias the result. They may change during dev runs (`--split dev`, pool tasks not in eval). Every run records `retry_prompts_fingerprint` in `run_meta.json`. A `--split test` run refuses to start if the prompts differ from `FROZEN_FINGERPRINT`, and `--resume` refuses a run made with other prompts. `Evaluator/self_test.py` also checks the fingerprint, so it fails after a prompt edit until the fingerprint is updated. Changing a prompt is a team decision: update `FROZEN_FINGERPRINT` and `FROZEN_DATE` with the reason, and never compare runs across the change.
 
 ## Budget log
 - Every API call goes through `AI_models/budget_tracker.py`, critic calls included. That's one row in `runs/usage_log.csv` (always at the repo root, wherever you start the script) with `task_id`, `arm` (`zero_shot` for attempt 0), `attempt`, `call_type` (`generator` / `critic`), tokens and cost. Copied-forward attempts make no call and get no row.
