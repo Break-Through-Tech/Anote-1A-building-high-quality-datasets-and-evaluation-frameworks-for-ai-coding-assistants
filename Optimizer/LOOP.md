@@ -27,7 +27,7 @@
    - After a failed API call on a retry, the next retry builds on the last good attempt.
 3. **Scoring:** every attempt is scored on the **hidden** tests (the reported result; the model never sees them) and on the public tests (the only feedback).
 
-Every setting is shared by every arm: temperature 0.5 (so the control really resamples), `max_tokens` 8192. Feedback arms only count as helping if they beat the control.
+Every setting is shared by every arm: temperature 0.5 (so the control really resamples), `max_tokens` 4096. Feedback arms only count as helping if they beat the control.
 
 ## Running it
 ```bash

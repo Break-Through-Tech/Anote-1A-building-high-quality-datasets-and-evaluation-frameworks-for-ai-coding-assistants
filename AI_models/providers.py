@@ -30,7 +30,7 @@ PANACEA_DIR = Path(os.environ.get("PANACEA_PATH") or Path(__file__).resolve().pa
 
 # Decoding settings shared by every arm, so the arms differ only in how they are orchestrated.
 # Change them only here.
-MAX_TOKENS = 8192   # output cap for claude-sonnet-4-6; raised from 4096 on 2026-11-10 (13 of 45 answers were cut off in the first dev run)
+MAX_TOKENS = 4096   # output cap for claude-sonnet-4-6 (decided 2026-11-03); 8192 in dev run 2 only, back to 4096 on 2026-11-11
 TEMPERATURE = 0.5   # above 0 so the fresh-resample control arm actually resamples
 MAX_RETRIES = 2     # the SDK's own retries on temporary API errors (rate limit, overload, timeout, 5xx)
 
