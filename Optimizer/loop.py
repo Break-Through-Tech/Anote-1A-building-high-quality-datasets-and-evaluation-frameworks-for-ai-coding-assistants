@@ -73,8 +73,8 @@ FULL_PRIVATE_PATH = REPO_ROOT / "data" / "code_generation" / "code_generation_pr
 DEV_SEED = 0
 DEV_LAYOUT = {("mbpp", "medium", "assert_list"): 1, ("mbpp", "hard", "assert_list"): 2,
               ("livecodebench", "easy", "stdin_io"): 1, ("livecodebench", "easy", "functional_io"): 1,
-              ("livecodebench", "medium", "stdin_io"): 1, ("livecodebench", "medium", "functional_io"): 1,
-              ("livecodebench", "hard", "stdin_io"): 2, ("livecodebench", "hard", "functional_io"): 1}
+              ("livecodebench", "hard", "stdin_io"): 3, ("livecodebench", "hard", "functional_io"): 2}
+# 2026-11-11: the 2 medium LiveCodeBench tasks became hard ones, so retries have more real failures to work on.
 
 
 def dev_items():
@@ -205,13 +205,17 @@ def carry_forward(prev_row, attempt):
 # =====================================================================
 # ONE TASK
 # =====================================================================
-def run_task(p, client, item, arms, retries):
-    """Returns {attempt: [rows]} for one task."""
+def run_task(p, client, item, arms, retries, row0=None):
+    """Returns {attempt: [rows]} for one task. With row0 (another run's attempt 0), no new attempt-0 call."""
     tid = item["id"]
     prompt0 = build_prompt(item, "raw")
-    text0, err0, use0 = ask(p, client, item, prompt0, rp.GENERATOR_SYSTEM, tid, ZERO_SHOT, 0, "generator")
-    pub0, hid0 = score(item, text0)
-    row0 = make_row(item, ZERO_SHOT, 0, prompt0, text0, pub0, hid0, use0, error=err0)
+    if row0 is None:
+        text0, err0, use0 = ask(p, client, item, prompt0, rp.GENERATOR_SYSTEM, tid, ZERO_SHOT, 0, "generator")
+        pub0, hid0 = score(item, text0)
+        row0 = make_row(item, ZERO_SHOT, 0, prompt0, text0, pub0, hid0, use0, error=err0)
+    else:
+        err0 = row0["error"] if row0["failed_run"] else None
+        pub0, _ = score(item, row0["output"])  # full public details for the feedback; the row keeps its scores
     out = {0: [row0]}
     status = f"public={row0['public_score']} hidden={row0['hidden_score']}"
     print(f"{tid}: attempt 0 {status}" + (" (failed run)" if err0 else ""), file=sys.stderr)
@@ -293,6 +297,9 @@ def main():
     ap.add_argument("--out", default=str(RESULTS_DIR), help="folder that holds the run folders (default data/results)")
     ap.add_argument("--resume", action="store_true", help="continue a run, skipping tasks already in attempt_0.jsonl")
     ap.add_argument("--summarize", metavar="RUN_DIR", help="only rebuild summary.json for an existing run")
+    ap.add_argument("--attempt0-from", metavar="RUN_DIR",
+                    help="reuse that run's attempt-0 answers (no new calls), so both runs retry the same tasks "
+                         "from the same code and differ only in the retries")
     args = ap.parse_args()
 
     if args.summarize:
@@ -323,6 +330,11 @@ def main():
     if p["api_key_env"] and not key:
         sys.exit(f"{p['api_key_env']} not set. Copy .env.example to .env and fill it in.")
 
+    if args.provider != "mock":  # scored code runs in this interpreter; a missing module scores 0 for the wrong reason
+        r = subprocess.run([sys.executable, "-I", "-c", "import numpy, sortedcontainers"], capture_output=True)
+        if r.returncode:
+            sys.exit(f"{sys.executable} can't import numpy or sortedcontainers, which answers use. "
+                     "Install requirements.txt in this environment first.")
     if args.provider != "mock" and args.split == "test" and rp.fingerprint() != rp.FROZEN_FINGERPRINT:
         sys.exit("AI_models/retry_prompts.py changed since the prompts were frozen "
                  f"({rp.FROZEN_DATE}). Changing them is a team decision: see that file's docstring.")
@@ -336,7 +348,19 @@ def main():
             "retries": args.retries, "rule": "copy-forward after a public pass",
             "retry_prompts_fingerprint": rp.fingerprint(),
             "git_commit": git_commit(), "git_dirty": git_dirty(), "usage_log": str(bt.LOG_PATH),
-            "started": datetime.datetime.now().isoformat(timespec="seconds"), "finished": None}
+            "attempt0_from": None, "started": datetime.datetime.now().isoformat(timespec="seconds"), "finished": None}
+    reused = {}
+    if args.attempt0_from:
+        src = Path(args.attempt0_from).resolve()
+        src_meta = json.loads((src / "run_meta.json").read_text())
+        for k in ("scoring_version", "split", "model", "max_tokens", "temperature", "task_ids"):
+            if src_meta.get(k) != meta[k]:
+                sys.exit(f"Can't reuse attempt 0 from {src}: {k} differs ({src_meta.get(k)!r} vs {meta[k]!r}).")
+        reused = {r["task_id"]: r for r in read_rows(src, 0)}
+        missing = [i for i in meta["task_ids"] if i not in reused]
+        if missing:
+            sys.exit(f"{src} has no attempt 0 for {', '.join(missing)}.")
+        meta["attempt0_from"] = src.name
 
     meta_path = run_dir / "run_meta.json"
     done = set()
@@ -345,7 +369,7 @@ def main():
             sys.exit(f"{run_dir} already has results. Use --resume to continue it, or --name for a new run.")
         old = json.loads(meta_path.read_text())
         for k in ("scoring_version", "split", "provider", "model", "max_tokens", "temperature", "task_ids", "arms", "retries",
-                  "retry_prompts_fingerprint"):
+                  "retry_prompts_fingerprint", "attempt0_from"):
             if old.get(k) != meta[k]:
                 sys.exit(f"Can't resume {run_dir}: {k} differs ({old.get(k)!r} vs {meta[k]!r}).")
         meta = {**old, "finished": None}
@@ -360,7 +384,7 @@ def main():
     stopped = None
     try:
         for it in todo:
-            append_task(run_dir, run_task(p, client, it, args.arms, args.retries))
+            append_task(run_dir, run_task(p, client, it, args.arms, args.retries, reused.get(it["id"])))
     except bt.BudgetExceeded as e:
         stopped = str(e)
         print(f"\nStopped: {e}\nThe unfinished task was not written; rerun with --resume after checking.",

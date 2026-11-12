@@ -34,6 +34,7 @@ Every setting is shared by every arm: temperature 0.5 (so the control really res
 python Optimizer/loop.py mock --split dev                     # no API: checks the plumbing
 python Optimizer/loop.py claude --split dev                   # dev pilot: 10 pool tasks not in eval
 python Optimizer/loop.py claude --split dev --resume          # continue after a stop
+python Optimizer/loop.py claude --split dev --attempt0-from data/results/<run>  # reuse that run's attempt 0
 python Optimizer/loop.py claude --split test --ids <list>     # the test run, once prompts are frozen
 python Optimizer/loop.py --summarize data/results/<run>       # rebuild summary.json and report.md
 python Baseline/baseline.py panacea --ids <list>              # Panacea's zero-shot arm, same tasks as the test run
@@ -42,7 +43,9 @@ python Optimizer/report.py data/results/<run> panacea_run.json   # add Panacea t
 
 Every run writes `report.md` itself and prints the same text in the terminal. `--summarize` rebuilds it without Panacea, so run `report.py` again afterwards if the run has a Panacea file.
 
-`--split dev` needs `data/code_generation/code_generation_private_tests.jsonl` (git-ignored; built by the code-generation notebook). Dev runs check the plumbing and measure tokens; they are never reported as results. The frozen-prompt check applies to `--split test` only.
+`--split dev` needs `data/code_generation/code_generation_private_tests.jsonl` (git-ignored; built by the code-generation notebook). Dev runs check the plumbing and measure tokens; they are never reported as results. The frozen-prompt check applies to `--split test` only. The dev set (`DEV_LAYOUT` in `loop.py`) is 3 MBPP + 7 LiveCodeBench tasks (1 easy stdin, 1 easy functional, 3 hard stdin, 2 hard functional; the medium ones became hard on 2026-11-11).
+
+`--attempt0-from <run>` reuses that run's attempt-0 answers instead of new calls, so two runs retry the same tasks from the same code and differ only in the retries. The two runs must share the split, model, temperature, `max_tokens`, scoring version and task ids. A real run also stops if its Python can't import `numpy` and `sortedcontainers`, because answers that import them would otherwise score 0.
 
 **Detailed tables and charts:** `python Optimizer/results.py data/results/<run> panacea_run.json --charts` writes CSVs to `data/results/<run>/analysis/` and PNGs to `analysis/charts/` (leave out `--charts` for CSVs only). `notebooks/results_analysis.ipynb` shows the same tables and charts. The tables cover:
 - every system at every attempt: hidden passed, rubric levels, false passes, cost
@@ -98,7 +101,7 @@ Run every step from the repo root, in order, and stop at the first one that fail
 ## Results: `data/results/<date>_<provider>_<split>[_<task list>]_<n>/`
 | file | rows |
 |---|---|
-| `run_meta.json` | the settings: scoring version, provider, model, temperature, `max_tokens`, task ids, arms, retries, `retry_prompts_fingerprint`, git commit and `git_dirty`, start/finish |
+| `run_meta.json` | the settings: scoring version, provider, model, temperature, `max_tokens`, task ids, arms, retries, `retry_prompts_fingerprint`, git commit and `git_dirty`, `attempt0_from`, start/finish |
 | `attempt_0.jsonl` | one per task |
 | `attempt_1.jsonl` … `attempt_3.jsonl` | one per (task that failed attempt 0's public tests × arm) |
 | `summary.json` | the numbers below |
