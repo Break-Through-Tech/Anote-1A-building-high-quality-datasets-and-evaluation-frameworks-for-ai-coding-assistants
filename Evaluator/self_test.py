@@ -196,6 +196,10 @@ def extraction(items, fixtures):
     reply = f"Compile nothing:\n{F}bash\npython3 main.py < in.txt\n{F}\n{fenced(fixtures[st['id']])}"
     check(f"extract: bash block before a stdin program -> passes {st['id']}'s real tests",
           evaluate(st, reply)["score"] == 1.0)
+    prog = fixtures[st["id"]].strip()
+    reply = f"{fenced('x = input()')}\nRevised:\n{fenced(prog)}\nOutput:\n{F}\n42\n{F}"
+    check("extract: stdin draft, revised program, printed output -> the last program that reads stdin",
+          extract_code(reply, st["entry_point"]) == prog)
 
 
 def lcb_header(items, fixtures):

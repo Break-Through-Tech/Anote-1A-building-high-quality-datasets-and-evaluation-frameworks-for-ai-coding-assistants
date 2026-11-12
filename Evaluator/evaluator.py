@@ -45,7 +45,7 @@ PYTHON_TEST_FORMATS = {"assert_list", "check_fn", "test_functions"}
 IO_TEST_FORMATS = {"functional_io", "stdin_io"}
 SCORABLE_FORMATS = PYTHON_TEST_FORMATS | IO_TEST_FORMATS
 SPLITS = {"public": "public", "private": "private", "hidden": "private"}  # "hidden" is an alias
-SCORING_VERSION = 2       # written into run files; bump when scoring changes so old and new runs aren't compared
+SCORING_VERSION = 3       # written into run files; bump when scoring changes so old and new runs aren't compared
 # Environment variables whose names contain these are not passed to the code under test (API keys from .env).
 SECRET_ENV_MARKERS = ("KEY", "TOKEN", "SECRET")
 
@@ -192,6 +192,7 @@ _FENCE = re.compile(r"^\s*```\s*([\w+#.-]*)")
 _PYTHON_TAGS = {"", "python", "py", "python3", "py3"}
 # Where code starts in an unfenced answer that opens with prose.
 _CODE_START = re.compile(r"^(?:def |class |import |from |@|if __name__)", re.MULTILINE)
+_READS_STDIN = re.compile(r"\binput\s*\(|\bstdin\b|\bopen\s*\(\s*0")
 
 
 def _parses(code: str) -> bool:
@@ -229,7 +230,9 @@ def extract_code(text: str, entry_point: str = None) -> str:
     """
     1. Complete Python fenced blocks (```python, ```py, ```python3, or untagged; other tags such as
        ```bash are skipped): the first one that defines `entry_point` (or class Solution), else the
-       first block. Models often put the solution first and example usage after.
+       first block. Models often put the solution first and example usage after. With no `entry_point`
+       (a stdin program), the last complete block tagged as Python that reads stdin comes first, because
+       models often revise a draft in a later block.
     2. A Python fence that was opened but never closed (truncated answer): everything after it,
        minus a half-written last line if that is what breaks parsing.
     3. No fence: the raw text, or, if it doesn't parse, the text from the first line that
@@ -243,6 +246,11 @@ def extract_code(text: str, entry_point: str = None) -> str:
             for b in blocks:
                 if re.search(rf"\bdef\s+{re.escape(entry_point)}\s*\(", b):
                     return b
+        else:
+            programs = [code for tag, code, closed in _fenced_blocks(text)
+                        if closed and tag in _PYTHON_TAGS - {""} and _READS_STDIN.search(code)]
+            if programs:
+                return programs[-1]
         for b in blocks:
             if "class Solution" in b:
                 return b
