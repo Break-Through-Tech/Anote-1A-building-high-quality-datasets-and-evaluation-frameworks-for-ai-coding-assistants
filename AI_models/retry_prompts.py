@@ -113,8 +113,10 @@ def critic_fix(problem: str, prev_code: str, feedback: str, critique: str) -> st
 
 
 
-FROZEN_DATE = "2026-11-04"
-FROZEN_FINGERPRINT = "c769b05400fdea1d6bffccf7a27e0bb929c7507017e5ea0f82c066450a39860a"  # fingerprint() on FROZEN_DATE
+# Re-frozen 2026-11-11 to add CONTROL_SYSTEM (decided by the team after dev runs 2026-11-11_claude_dev_1-3,
+# pool tasks only). The 2026-11-04 fingerprint was c769b05400fdea1d6bffccf7a27e0bb929c7507017e5ea0f82c066450a39860a.
+FROZEN_DATE = "2026-11-11"
+FROZEN_FINGERPRINT = "e5cbb6832c9d387e62c50c5d1b8eddf5a31a548e19ebab13a3b5e9449feebef0"  # fingerprint() on FROZEN_DATE
 
 
 def fingerprint() -> str:
