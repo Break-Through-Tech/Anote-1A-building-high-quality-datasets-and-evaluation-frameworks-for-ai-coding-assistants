@@ -128,7 +128,7 @@ def write_run(out, seed=7, retries=3):
                 f.write(json.dumps(r) + "\n")
     ids = [it["id"] for it in items]
     meta = {"scoring_version": SCORING_VERSION, "provider": "synthetic", "model": "SYNTHETIC (test data, not a model)",
-            "max_tokens": 4096, "temperature": 0.5, "ids_file": "synthetic", "task_ids": ids, "arms": list(ARMS),
+            "max_tokens": 8192, "temperature": 0.5, "ids_file": "synthetic", "task_ids": ids, "arms": list(ARMS),
             "retries": retries, "rule": "copy-forward after a public pass", "git_commit": None, "usage_log": None,
             "started": None, "finished": None, "synthetic": True, "seed": seed}
     (out / "run_meta.json").write_text(json.dumps(meta, indent=2))
