@@ -247,8 +247,11 @@ def extraction(items, fixtures):
         r = evaluate(it, reply)
         check(f"extract: {name} -> passes {it['id']}'s real tests", r["score"] == 1.0, (extract_code(reply, ep), r["error"]))
     draft_then_fix = f"{fenced(stub(it))}\nFixed:\n{fenced(ref)}"
-    check("extract: draft then fix -> the first block that defines the function (Harold's order)",
-          extract_code(draft_then_fix, ep) == stub(it))
+    check("extract: draft then fix -> the last block that defines the function (scoring version 5)",
+          extract_code(draft_then_fix, ep) == ref and evaluate(it, draft_then_fix)["score"] == 1.0)
+    cut_off = f"{draft_then_fix}\nOne more try:\n{F}python\ndef {ep}(*args):\n    return"
+    check("extract: draft, fix, then a block cut off before its closing fence -> the last COMPLETE block",
+          extract_code(cut_off, ep) == ref)
     st = next(items[i] for i in fixtures if items[i]["test_format"] == "stdin_io")
     reply = f"Compile nothing:\n{F}bash\npython3 main.py < in.txt\n{F}\n{fenced(fixtures[st['id']])}"
     check(f"extract: bash block before a stdin program -> passes {st['id']}'s real tests",

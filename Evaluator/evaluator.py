@@ -45,8 +45,10 @@ PYTHON_TEST_FORMATS = {"assert_list", "check_fn", "test_functions"}
 IO_TEST_FORMATS = {"functional_io", "stdin_io"}
 SCORABLE_FORMATS = PYTHON_TEST_FORMATS | IO_TEST_FORMATS
 SPLITS = {"public": "public", "private": "private", "hidden": "private"}  # "hidden" is an alias
-SCORING_VERSION = 4       # written into run files; bump when scoring changes so old and new runs aren't compared
+SCORING_VERSION = 5       # written into run files; bump when scoring changes so old and new runs aren't compared
                           # 4 (2026-11-12): CHECKERS for the tasks that accept several correct answers
+                          # 5 (2026-11-12): function tasks score the LAST complete block that defines the
+                          #                 function (was the first), the same rule as stdin programs
 # Environment variables whose names contain these are not passed to the code under test (API keys from .env).
 SECRET_ENV_MARKERS = ("KEY", "TOKEN", "SECRET")
 
@@ -230,10 +232,11 @@ def _fenced_blocks(text: str) -> list:
 def extract_code(text: str, entry_point: str = None) -> str:
     """
     1. Complete Python fenced blocks (```python, ```py, ```python3, or untagged; other tags such as
-       ```bash are skipped): the first one that defines `entry_point` (or class Solution), else the
-       first block. Models often put the solution first and example usage after. With no `entry_point`
-       (a stdin program), the last complete block tagged as Python that reads stdin comes first, because
-       models often revise a draft in a later block.
+       ```bash are skipped): the LAST one that defines `entry_point` (or class Solution), because models
+       often revise a draft in a later block (scoring version 5; it was the first one before). A block of
+       example usage after the solution doesn't define the function, so it is skipped. With no block
+       that defines it, the first block. With no `entry_point` (a stdin program), the last complete block
+       tagged as Python that reads stdin comes first, for the same reason.
     2. A Python fence that was opened but never closed (truncated answer): everything after it,
        minus a half-written last line if that is what breaks parsing.
     3. No fence: the raw text, or, if it doesn't parse, the text from the first line that
@@ -244,7 +247,7 @@ def extract_code(text: str, entry_point: str = None) -> str:
     blocks = [code for code, closed in fenced if closed]
     if blocks:
         if entry_point:
-            for b in blocks:
+            for b in reversed(blocks):
                 if re.search(rf"\bdef\s+{re.escape(entry_point)}\s*\(", b):
                     return b
         else:
@@ -252,7 +255,7 @@ def extract_code(text: str, entry_point: str = None) -> str:
                         if closed and tag in _PYTHON_TAGS - {""} and _READS_STDIN.search(code)]
             if programs:
                 return programs[-1]
-        for b in blocks:
+        for b in reversed(blocks):
             if "class Solution" in b:
                 return b
         return blocks[0]
