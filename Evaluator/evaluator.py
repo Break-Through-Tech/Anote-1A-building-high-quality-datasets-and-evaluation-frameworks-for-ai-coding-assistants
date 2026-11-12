@@ -45,7 +45,8 @@ PYTHON_TEST_FORMATS = {"assert_list", "check_fn", "test_functions"}
 IO_TEST_FORMATS = {"functional_io", "stdin_io"}
 SCORABLE_FORMATS = PYTHON_TEST_FORMATS | IO_TEST_FORMATS
 SPLITS = {"public": "public", "private": "private", "hidden": "private"}  # "hidden" is an alias
-SCORING_VERSION = 3       # written into run files; bump when scoring changes so old and new runs aren't compared
+SCORING_VERSION = 4       # written into run files; bump when scoring changes so old and new runs aren't compared
+                          # 4 (2026-11-12): CHECKERS for the tasks that accept several correct answers
 # Environment variables whose names contain these are not passed to the code under test (API keys from .env).
 SECRET_ENV_MARKERS = ("KEY", "TOKEN", "SECRET")
 
@@ -476,6 +477,102 @@ def outputs_match(actual: str, expected: str) -> bool:
     return True
 
 
+# =====================================================================
+# CHECKERS: tasks that accept several correct answers
+# =====================================================================
+# A test file holds ONE accepted output per test, so outputs_match() fails every other correct answer.
+# Each task below has its own checker(test_input, expected_output, actual_output) -> bool, and
+# _run_stdin_tests() uses it in place of outputs_match(). The expected output still supplies what a
+# checker can't work out itself (the minimum cost, or whether any answer exists). Output a checker can't
+# read (missing lines, a word where a number belongs) is a wrong answer.
+# Evaluator/self_test.py checks that every checker accepts its tests' expected outputs and other correct
+# answers, and rejects broken ones. The 80 LiveCodeBench eval tasks and the dev tasks were read for this
+# on 2026-11-12; add a checker here before using any other task that accepts several answers.
+
+def _check_arc190_a(inp: str, expected: str, actual: str) -> bool:
+    """Any minimum-cost choice of operations: the cost equals the expected one, it is the number of
+    non-zero operations, and the chosen operations set every position 1..N."""
+    exp, got, data = expected.split(), actual.split(), [int(x) for x in inp.split()]
+    n, m = data[0], data[1]
+    if exp[0] == "-1":
+        return got == ["-1"]
+    if len(got) != m + 1 or int(got[0]) != int(exp[0]) or any(op not in ("0", "1", "2") for op in got[1:]):
+        return False
+    if sum(op != "0" for op in got[1:]) != int(exp[0]):
+        return False
+    diff = [0] * (n + 2)  # diff[j]: change, at position j, in how many chosen operations set that position
+    for i, op in enumerate(got[1:]):
+        left, right = data[2 + 2 * i], data[3 + 2 * i]
+        if op == "1":    # sets left..right
+            diff[left] += 1
+            diff[right + 1] -= 1
+        elif op == "2":  # sets everything outside left..right
+            diff[1] += 1
+            diff[left] -= 1
+            diff[right + 1] += 1
+    covering = 0
+    for j in range(1, n + 1):
+        covering += diff[j]
+        if covering <= 0:
+            return False
+    return True
+
+
+def _check_arc195_c(inp: str, expected: str, actual: str) -> bool:
+    """Any valid placement. Per test case: "No" where the expected output says No; otherwise "Yes" and
+    R + B lines "p r c" with R red and B blue pieces, every square on the board and used once, and every
+    piece one move away from the next one (the last from the first): red moves along a row or column,
+    blue moves diagonally."""
+    data, exp, got = [int(x) for x in inp.split()], expected.split(), actual.split()
+    e = g = 0
+    for case in range(data[0]):
+        red, blue = data[1 + 2 * case], data[2 + 2 * case]
+        n = red + blue
+        possible = exp[e] == "Yes"
+        e += 1 + 3 * n if possible else 1
+        if got[g] != ("Yes" if possible else "No"):
+            return False
+        g += 1
+        if not possible:
+            continue
+        rows = [(got[g + 3 * i], int(got[g + 3 * i + 1]), int(got[g + 3 * i + 2])) for i in range(n)]
+        g += 3 * n
+        colors = [p for p, _, _ in rows]
+        if colors.count("R") != red or colors.count("B") != blue:
+            return False
+        if any(not (1 <= r <= 10 ** 9 and 1 <= c <= 10 ** 9) for _, r, c in rows):
+            return False
+        if len({(r, c) for _, r, c in rows}) != n:
+            return False
+        for i, (p, r, c) in enumerate(rows):
+            _, r2, c2 = rows[(i + 1) % n]
+            dr, dc = abs(r - r2), abs(c - c2)
+            if (dr + dc != 1) if p == "R" else (dr != 1 or dc != 1):
+                return False
+    return g == len(got)
+
+
+def _check_arc192_a(inp: str, expected: str, actual: str) -> bool:
+    """Yes / No, and the task's judge ignores case: yes, YES and yEs count as Yes."""
+    return actual.split() == [actual.strip()] and actual.strip().lower() == expected.strip().lower()
+
+
+CHECKERS = {
+    "livecodebench-arc190_a": _check_arc190_a,  # dev set (pool task)
+    "livecodebench-arc192_a": _check_arc192_a,  # eval
+    "livecodebench-arc195_c": _check_arc195_c,  # eval
+}
+
+
+def _accepts(checker, test: dict, stdout: str) -> bool:
+    if checker is None:
+        return outputs_match(stdout, test["output"])
+    try:
+        return bool(checker(test["input"], test["output"], stdout or ""))
+    except (ValueError, IndexError):  # the output isn't in the task's format
+        return False
+
+
 # Environment for the code under test: ours minus anything that looks like a secret (the API keys
 # loaded from .env), since the code is whatever the model wrote.
 def _test_env() -> dict:
@@ -484,7 +581,7 @@ def _test_env() -> dict:
     return env
 
 
-def _run_stdin_tests(code: str, tests: list, header: str, per_test: float) -> dict:
+def _run_stdin_tests(code: str, tests: list, header: str, per_test: float, checker=None) -> dict:
     details = []
     with tempfile.TemporaryDirectory() as d:
         cand, runner, hdr = (os.path.join(d, n) for n in ("solution.py", "runner.py", "header.py"))
@@ -507,7 +604,7 @@ def _run_stdin_tests(code: str, tests: list, header: str, per_test: float) -> di
                 if p.returncode != 0:
                     err = p.stderr.split("__ERR__", 1)[-1].strip() if p.stderr else f"exit code {p.returncode}"
                     rec["error"] = _short(err.splitlines()[-1] if "__ERR__" not in p.stderr else err)
-                elif outputs_match(p.stdout, t["output"]):
+                elif _accepts(checker, t, p.stdout):
                     rec["status"] = "pass"
                 else:
                     rec["status"] = "wrong_answer"
@@ -563,15 +660,16 @@ def _run_harness(code: str, tests: list, mode: str, entry: str, header: str, per
 
 # Run `code` against `tests` with the runner for `test_format`.
 def run_tests(code: str, tests: list, test_format: str = "assert_list", entry_point: str = "",
-              source: str = "", per_test: float = PER_TEST_TIMEOUT_S) -> dict:
+              source: str = "", per_test: float = PER_TEST_TIMEOUT_S, checker=None) -> dict:
     """
     Returns {"results": [bool per test], "details": [per-test dict], "error": str or None}.
     Each details entry: i, status (pass | wrong_answer | runtime_error | timeout), test, expected,
     actual, error. If the code can't even load, details are filled with status "load_error".
+    `checker` (stdin_io only) is the task's entry in CHECKERS, for a task that accepts several answers.
     """
     header = LCB_HEADER if source == "livecodebench" else ""
     if test_format == "stdin_io":
-        r = _run_stdin_tests(code, tests, header, per_test)
+        r = _run_stdin_tests(code, tests, header, per_test, checker)
     elif test_format == "functional_io":
         r = _run_harness(code, tests, "functional", entry_point, header, per_test)
     elif test_format in PYTHON_TEST_FORMATS:
@@ -651,7 +749,8 @@ def evaluate(item: dict, output: str, latency_s: float = None, output_tokens: in
     code = extract_code(output, item.get("entry_point"))
     syntax_ok = bool(code.strip()) and _parses(code)
     if syntax_ok:
-        r = run_tests(code, tests, fmt, item.get("entry_point", ""), item["source"])
+        r = run_tests(code, tests, fmt, item.get("entry_point", ""), item["source"],
+                      checker=CHECKERS.get(item["id"]))
         details, error = r["details"], r["error"]
     else:
         error = "no code in the answer" if not code.strip() else _syntax_error(code)

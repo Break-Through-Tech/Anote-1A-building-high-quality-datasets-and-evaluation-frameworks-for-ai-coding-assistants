@@ -13,7 +13,9 @@ real public tests (`tests`) and real hidden tests (unified_private_tests.jsonl.g
    LiveCodeBench, which ships no references); a do-nothing answer fails every task's hidden tests.
 2. Evaluator: a pass and a fail per test format, every rubric level, code extraction from
    different reply shapes, the LiveCodeBench import header, the subprocess isolation (no stdin,
-   no API keys), and feedback that shows public tests only.
+   no API keys), and feedback that shows public tests only. The checkers for tasks that accept
+   several correct answers (evaluator.CHECKERS) accept every real expected output and other correct
+   answers, and reject broken ones.
 3. Pipeline: prompts and retry prompts, baseline.py's run_one / summarize_run (hidden tests as
    the headline, public beside them), and compare_runs' guards.
 4. Loop: Optimizer/loop.py on one real MBPP task scripted into each attempt-0 cell (A true pass,
@@ -39,8 +41,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from Evaluator.evaluator import (DATASET_PATH, PRIVATE_TESTS_PATH, SCORING_VERSION, evaluate, extract_code,
-                                 format_feedback, load_items, load_private_tests)
+from Evaluator.evaluator import (CHECKERS, DATASET_PATH, PRIVATE_TESTS_PATH, SCORING_VERSION, _accepts, evaluate,
+                                 extract_code, format_feedback, load_items, load_private_tests, outputs_match)
 
 FIXTURES_PATH = Path(__file__).resolve().parent / "fixtures.json"
 F = "```"  # a markdown fence
@@ -128,6 +130,61 @@ def formats(items, fixtures):
         r_pass, r_fail = evaluate(it, fenced(good)), evaluate(it, fenced(stub(it)))
         check(f"format {fmt} ({it['id']}): correct code passes, a do-nothing answer fails",
               r_pass["score"] == 1.0 and r_fail["score"] == 0.0, (r_pass["error"], r_fail["score"]))
+
+
+# Tasks that accept several correct answers are scored by their own checker (evaluator.CHECKERS), not by
+# exact output. Other correct answers and broken answers below are hand-written for each task's first public test.
+CHECKER_CASES = {
+    # N = 5, intervals (2,4) (3,5) (1,4) (2,5); expected "2 / 2 0 1 0"
+    "livecodebench-arc190_a": (
+        ["2\n0 1 1 0", "2\n0 0 1 1"],
+        ["2\n1 0 0 1",   # position 1 is never set
+         "2\n2 2 0 0",   # positions 3 and 4 are never set
+         "3\n1 1 1 0",   # not the minimum cost
+         "2\n1 1 1 0",   # the cost line doesn't match the operations
+         "2\n0 1 1", "2\n0 1 1 x", "-1", ""]),
+    # expected "Yes"; the task's judge ignores case
+    "livecodebench-arc192_a": (["YES", "yes\n"], ["No", "Yes Yes", ""]),
+    # cases (R, B) = (2, 3), (1, 1), (4, 0); expected Yes + 5 pieces, No, Yes + 4 pieces
+    "livecodebench-arc195_c": (
+        ["Yes\nB 12 13\nR 13 12\nB 12 12\nB 13 13\nR 12 14\nNo\nYes\nR 5 5\nR 5 6\nR 6 6\nR 6 5"],
+        ["No\nNo\nYes\nR 1 1\nR 1 2\nR 2 2\nR 2 1",                                             # No where one exists
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nYes\nR 1 1\nB 2 2\nYes\nR 1 1\nR 1 2\nR 2 2\nR 2 1",  # Yes where none exists
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nNo\nYes\nR 1 1\nR 1 2\nR 1 1\nR 1 2",        # a square used twice
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nNo\nYes\nR 1 1\nR 1 2\nR 2 2\nR 3 1",        # last piece can't reach the first
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nNo\nYes\nB 1 1\nR 1 2\nR 2 2\nR 2 1",        # wrong number of red pieces
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nNo\nYes\nR 0 1\nR 0 2\nR 1 2\nR 1 1",        # off the board
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nNo\nYes\nR 1 1\nR 1 2\nR 2 2",                # a piece missing
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nNo\nYes\nR 1 1\nR 1 2\nR 2 2\nR 2 1\nNo",    # extra output
+         ""]),
+}
+
+
+def checkers(items, hidden):
+    pool_path = REPO_ROOT / "data" / "unified" / "unified_pool.jsonl"
+    pool = {it["id"]: it for it in load_items(pool_path, scorable_only=False)}
+    tasks = {tid: items.get(tid) or pool[tid] for tid in CHECKERS}
+    check("checkers: every task with a checker has hand-written answers to test it", set(CHECKER_CASES) == set(CHECKERS),
+          sorted(set(CHECKER_CASES) ^ set(CHECKERS)))
+    n = 0
+    for tid, it in tasks.items():
+        for t in it["tests"] + hidden.get(tid, []):  # the dev task's hidden tests are not in the eval file
+            assert _accepts(CHECKERS[tid], t, t["output"]), (tid, "rejects its own expected output", t["input"][:80])
+            n += 1
+    check(f"checkers: {len(CHECKERS)} tasks accept the expected output of all their {n} real tests", True)
+    for tid, (correct, broken) in CHECKER_CASES.items():
+        t = tasks[tid]["tests"][0]
+        ok = all(_accepts(CHECKERS[tid], t, a) and not outputs_match(a, t["output"]) for a in correct)
+        bad = [b for b in broken if _accepts(CHECKERS[tid], t, b)]
+        check(f"checker {tid}: {len(correct)} other correct answers pass (exact match fails them), "
+              f"{len(broken)} broken answers fail", ok and not bad, bad)
+    it = tasks["livecodebench-arc190_a"]
+    one = {**it, "tests": it["tests"][:1]}
+    r_pass = evaluate(one, fenced('print("2")\nprint("0 1 1 0")'))
+    r_fail = evaluate(one, fenced('print("2")\nprint("1 0 0 1")'))
+    check("checkers: evaluate() uses the checker (another correct answer passes, a wrong one is a wrong_answer)",
+          r_pass["score"] == 1.0 and r_fail["score"] == 0.0 and r_fail["failure_type"] == "wrong_answer",
+          (r_pass["details"], r_fail["failure_type"]))
 
 
 # An answer that is the reference for its first k calls and returns None after that. Tests share one
@@ -583,6 +640,7 @@ if __name__ == "__main__":
     items, hidden, fixtures = load()
     data(items, hidden, fixtures)
     formats(items, fixtures)
+    checkers(items, hidden)
     levels(items)
     extraction(items, fixtures)
     lcb_header(items, fixtures)
