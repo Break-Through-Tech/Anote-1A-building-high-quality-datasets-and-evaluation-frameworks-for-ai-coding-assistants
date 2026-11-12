@@ -13,6 +13,12 @@ Evaluator-Optimizer loop v1 (Milestone #2). For every task:
                    call 2: the generator fixes the code using the diagnosis
   Every retry shows only that arm's LATEST attempt (retry_prompts.py).
 
+Answers that hit max_tokens (2026-11-11; attempt 0 is never changed):
+  - every arm: one follow-up call ("finalize") shows the model its unfinished retry answer and asks only for
+    the final code, which is what gets scored (finalized = true; draft_output keeps the cut-off answer)
+  - reflect_fix and critic: when the arm's previous answer hit max_tokens, the test feedback says so
+    (told_cut_off = true). control and bare_retry are never told: does telling the model help?
+
 Copy-forward rule (v1): once an arm's code passes its public tests, its later attempts copy that
 attempt with no API call (carried_forward = true, 0 calls), so every arm has attempts 1-3.
 
@@ -169,7 +175,7 @@ def score(item, text):
 
 
 def make_row(item, arm, attempt, prompt, output, public, hidden, usage, critique=None, error=None,
-             prev_row=None):
+             prev_row=None, draft=None, told_cut_off=False):
     failed = error is not None
     hid_score = 0.0 if failed else hidden["score"]
     hid_rate = 0.0 if failed else hidden["test_pass_rate"]
@@ -193,13 +199,21 @@ def make_row(item, arm, attempt, prompt, output, public, hidden, usage, critique
         "critique_has_code": None if critique is None else ("```" in critique or "def " in critique),
         "failed_run": failed, "error": error or (hidden["error"] if hidden["error"] else None),
         **usage,
-        "prompt": prompt, "critique": critique, "output": output,
+        # finalized: the answer hit max_tokens and a follow-up call gave the final code (output); draft_output
+        # is the cut-off answer. told_cut_off: the prompt said the previous answer ran out of space.
+        "finalized": draft is not None, "told_cut_off": told_cut_off,
+        "prompt": prompt, "critique": critique, "output": output, "draft_output": draft,
     }
 
 
 def carry_forward(prev_row, attempt):
     return {**prev_row, "attempt": attempt, "regression": False, "carried_forward": True,
-            **{k: 0 for k in USAGE_KEYS}, "prompt": None, "critique": None}
+            **{k: 0 for k in USAGE_KEYS}, "prompt": None, "critique": None, "draft_output": None}
+
+
+def hit_limit(row):
+    """The answer reached max_tokens (the row keeps that stop_reason even after a finalize call)."""
+    return row.get("stop_reason") == "max_tokens"
 
 
 # =====================================================================
@@ -229,28 +243,36 @@ def run_task(p, client, item, arms, retries, row0=None):
                 out.setdefault(k, []).append(carry_forward(prev_row, k))
                 continue
             prev_code = extract_code(prev_row["output"], item.get("entry_point"))
-            usage, critique, error = {}, None, None
+            usage, critique, error, draft = {}, None, None, None
+            told = arm in ("reflect_fix", "critic") and hit_limit(prev_row)
+            note = rp.CUT_OFF_NOTE if told else ""
             if arm == "control":
                 prompt = prompt0
             elif arm == "bare_retry":
                 prompt = rp.bare_retry(item["prompt"], prev_code)
             elif arm == "reflect_fix":
-                prompt = rp.reflect_fix(item["prompt"], prev_code, format_feedback(prev_public))
+                prompt = rp.reflect_fix(item["prompt"], prev_code, format_feedback(prev_public) + note)
             elif arm == "critic":
                 fb = format_feedback(prev_public)
                 critique, error, usage = ask(p, client, item, rp.critic_review(item["prompt"], prev_code, fb),
                                              rp.CRITIC_SYSTEM, tid, arm, k, "critic")
-                prompt = rp.critic_fix(item["prompt"], prev_code, fb, critique)
+                prompt = rp.critic_fix(item["prompt"], prev_code, fb + note, critique)  # the reviewer isn't told
             else:
                 raise ValueError(arm)
             if error is None:
                 system = rp.CONTROL_SYSTEM if arm == "control" else rp.GENERATOR_SYSTEM
                 text, error, u = ask(p, client, item, prompt, system, tid, arm, k, "generator")
                 usage = {**_add_usage(usage, u), "stop_reason": u["stop_reason"]}
+                if error is None and u["stop_reason"] == "max_tokens":  # every arm: one follow-up for the final code
+                    final, ferr, fu = ask(p, client, item, rp.finalize(item["prompt"], text), system, tid, arm, k,
+                                          "finalize")
+                    usage = {**_add_usage(usage, fu), "stop_reason": "max_tokens"}
+                    if ferr is None and final.strip():  # if the follow-up fails, the cut-off answer is scored
+                        draft, text = text, final
             else:
                 text = ""
             public, hidden = score(item, text)
-            row = make_row(item, arm, k, prompt, text, public, hidden, usage, critique, error, prev_row)
+            row = make_row(item, arm, k, prompt, text, public, hidden, usage, critique, error, prev_row, draft, told)
             out.setdefault(k, []).append(row)
             print(f"    {arm:<11} attempt {k} public={row['public_score']} hidden={row['hidden_score']} "
                   f"({row['hidden_tests']})" + (" (failed run)" if error else ""), file=sys.stderr)

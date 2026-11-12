@@ -25,6 +25,9 @@
    - Retries 2–3 build on that arm's **own** latest attempt. Prompts show only the latest attempt, not the history (`AI_models/retry_prompts.py`).
    - **Copy-forward rule (v1):** once an arm's code passes its public tests, its later attempts copy that attempt with **no API call** (`carried_forward: true`). Every arm has attempts 1–3, so the curves line up.
    - After a failed API call on a retry, the next retry builds on the last good attempt.
+   - **Answers that hit `max_tokens` (added 2026-11-11; attempt 0 is never changed):**
+     - **Finalize call, every arm:** a retry answer that hits the limit gets one follow-up call. It shows the model its unfinished answer and asks only for the final code. That reply is scored (`finalized: true`), and the cut-off answer is kept in `draft_output`. If the follow-up fails, the cut-off answer is scored.
+     - **"You ran out of space" note, `reflect_fix` and `critic` only:** when the arm's previous answer hit the limit, the test feedback says so and asks for shorter reasoning (`told_cut_off: true`). The critic's reviewer call isn't told, only its generator call. `control` and `bare_retry` get no feedback by design, so they are the comparison. This tests a small research question: **does telling the model it ran out of space help?** The report's section of that name counts, per arm, how many answers after a cut-off answer were cut off again.
 3. **Scoring:** every attempt is scored on the **hidden** tests (the reported result; the model never sees them) and on the public tests (the only feedback).
 
 Every setting is shared by every arm: temperature 0.5 (so the control really resamples), `max_tokens` 4096. Feedback arms only count as helping if they beat the control.
@@ -89,10 +92,10 @@ Run every step from the repo root, in order, and stop at the first one that fail
 9. **Panacea, test split only:** skip this for dev runs, because `baseline.py` can't load pool tasks. For the test run, in `.venv-panacea`, run `python Baseline/baseline.py panacea --ids <list>` with the same list (see `panacea_config.md`). Then do step 8 again for the log and `panacea_run.json`.
 10. **Results:** run `python Optimizer/results.py data/results/<run> panacea_run.json --charts`, and open `notebooks/results_analysis.ipynb`.
 
-**Frozen retry prompts (decided 2026-11-04; dev split added 2026-11-10; re-frozen 2026-11-11 to add the control arm's `CONTROL_SYSTEM`):** the retry prompts in `AI_models/retry_prompts.py` stay frozen for the test split, because prompts tuned on the 100 eval tasks would bias the result. They may change during dev runs (`--split dev`, pool tasks not in eval). Every run records `retry_prompts_fingerprint` in `run_meta.json`. A `--split test` run refuses to start if the prompts differ from `FROZEN_FINGERPRINT`, and `--resume` refuses a run made with other prompts. `Evaluator/self_test.py` also checks the fingerprint, so it fails after a prompt edit until the fingerprint is updated. Changing a prompt is a team decision: update `FROZEN_FINGERPRINT` and `FROZEN_DATE` with the reason, and never compare runs across the change.
+**Frozen retry prompts (decided 2026-11-04; dev split added 2026-11-10; re-frozen 2026-11-11 to add the control arm's `CONTROL_SYSTEM`, then the finalize prompt and the "ran out of space" note, which have not had a paid dev run yet):** the retry prompts in `AI_models/retry_prompts.py` stay frozen for the test split, because prompts tuned on the 100 eval tasks would bias the result. They may change during dev runs (`--split dev`, pool tasks not in eval). Every run records `retry_prompts_fingerprint` in `run_meta.json`. A `--split test` run refuses to start if the prompts differ from `FROZEN_FINGERPRINT`, and `--resume` refuses a run made with other prompts. `Evaluator/self_test.py` also checks the fingerprint, so it fails after a prompt edit until the fingerprint is updated. Changing a prompt is a team decision: update `FROZEN_FINGERPRINT` and `FROZEN_DATE` with the reason, and never compare runs across the change.
 
 ## Budget log
-- Every API call goes through `AI_models/budget_tracker.py`, critic calls included. That's one row in `runs/usage_log.csv` (always at the repo root, wherever you start the script) with `task_id`, `arm` (`zero_shot` for attempt 0), `attempt`, `call_type` (`generator` / `critic`), tokens and cost. Copied-forward attempts make no call and get no row.
+- Every API call goes through `AI_models/budget_tracker.py`, critic calls included. That's one row in `runs/usage_log.csv` (always at the repo root, wherever you start the script) with `task_id`, `arm` (`zero_shot` for attempt 0), `attempt`, `call_type` (`generator` / `critic` / `finalize`), tokens and cost. Copied-forward attempts make no call and get no row.
 - The same log covers `baseline.py`'s `claude` and `panacea` runs (arms `baseline_claude`, `baseline_panacea`), so the stop counts all Claude spending on this machine.
 - New calls stop at $47 of the $50 budget.
 - Input and output tokens come from the API. Only a failed call has estimated counts (about 4 characters per token, `estimated=True`).
@@ -106,7 +109,7 @@ Run every step from the repo root, in order, and stop at the first one that fail
 | `attempt_0.jsonl` | one per task |
 | `attempt_1.jsonl` … `attempt_3.jsonl` | one per (task that failed attempt 0's public tests × arm) |
 | `summary.json` | the numbers below |
-| `report.md` | the same text the terminal prints: run health, main table, attempts, cells, self-correction, breakdowns, paired tests with Holm p values, task ids |
+| `report.md` | the same text the terminal prints: run health, main table, attempts, cells, self-correction, breakdowns, cut-off sensitivity, "does telling the model it ran out of space help?", paired tests with Holm p values, task ids |
 
 Row fields (the same in every attempt file):
 
@@ -121,8 +124,11 @@ Row fields (the same in every attempt file):
 | `regression` | the hidden test pass rate went **down** from this arm's previous attempt (null at attempt 0 and on a failed run) |
 | `carried_forward` | copied from the previous attempt after a public pass; no call made |
 | `failed_run`, `error` | the API call failed after the SDK's retries (scored 0) / the error name |
-| `calls`, `input_tokens`, `output_tokens`, `tokens_estimated`, `cost_usd`, `latency_s` | per attempt (critic attempts sum both calls); they match the usage-log rows. `tokens_estimated` = calls whose counts were estimated |
-| `prompt`, `critique`, `output` | exactly what was sent and returned (`critique` only in the critic arm) |
+| `calls`, `input_tokens`, `output_tokens`, `tokens_estimated`, `cost_usd`, `latency_s` | per attempt (critic attempts sum both calls, and a finalize call is added); they match the usage-log rows. `tokens_estimated` = calls whose counts were estimated |
+| `stop_reason` | the generator call's stop reason. `max_tokens` means the answer was cut off, and it stays `max_tokens` after a finalize call |
+| `finalized`, `draft_output` | the answer was cut off and a follow-up call gave the final code (`output`); `draft_output` is the cut-off answer. Rows from runs before 2026-11-11 don't have these |
+| `told_cut_off` | the prompt said the arm's previous answer ran out of space (`reflect_fix` and `critic` only) |
+| `prompt`, `critique`, `output` | exactly what was sent and returned (`critique` only in the critic arm). The finalize prompt is not stored: it is the task plus `draft_output` |
 
 `summary.json` has the fields below. Everywhere, `hidden_pass@1` and `public_pass@1` count failed attempt-0 API calls as 0, and `*_excl_failed` leaves those tasks out. Failed retries count 0 in both.
 - `attempt_0`: hidden and public pass@1, failed runs, the A/B/C/D cell counts and ids, calls and cost.
@@ -134,7 +140,9 @@ Row fields (the same in every attempt file):
   - false fixes at attempt 3, regressions, failed runs (total and per attempt)
   - calls, tokens, $, $ per repair
 - `all_tasks_by_source_difficulty`: cells, failed runs, zero-shot and each arm's final hidden pass@1 per group. `by_source_difficulty` and `by_attempt0_failure_type`: the paired curves split the same way.
-- `diagnostics`: truncated answers, missing or several code blocks, critiques with code, tokens per call.
+- `diagnostics`: truncated answers, finalized answers, missing or several code blocks, critiques with code, tokens per call.
+- `cut_off_sensitivity`: each arm's final hidden pass@1 on all tasks and on C + D, with and without the tasks where any answer hit `max_tokens`, plus cut-off answers per arm. If the arms compare the same way both ways, the token limit doesn't change the conclusion.
+- `after_cut_off`: per arm, the retry answers whose previous attempt hit `max_tokens`, how many were told, and how many were cut off again.
 - `paired_tests`: the `feedback_vs_control` and `vs_zero_shot` families, with raw p, `p_holm` and `significant`.
 
 `python Evaluator/self_test.py` checks all of this with a scripted model on a real task, no API.

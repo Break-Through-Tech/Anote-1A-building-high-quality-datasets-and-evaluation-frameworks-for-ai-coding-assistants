@@ -24,6 +24,13 @@ that arm's one fixed strategy:
 
 The failing-test text comes from Evaluator.evaluator.format_feedback(public_result).
 
+Answers that hit max_tokens (added 2026-11-11; attempt 0 is never changed):
+- Every arm: a retry answer that hits max_tokens gets ONE follow-up call, finalize(), that shows the model
+  its unfinished answer and asks only for the final code. That reply is what gets scored.
+- reflect_fix and critic only: when the arm's previous answer hit max_tokens, CUT_OFF_NOTE is added to the
+  test feedback. It is true evaluator feedback, and it tests a small research question: does telling the
+  model it ran out of space help? control and bare_retry get no feedback by design, so they are the comparison.
+
 Rules (same as prompts.py):
 - Only the item's prompt, the model's own previous code, and PUBLIC test feedback
   go into a prompt. Never hidden tests, the reference, or metadata.
@@ -112,11 +119,28 @@ def critic_fix(problem: str, prev_code: str, feedback: str, critique: str) -> st
             f"{OUTPUT_CONTRACT}")
 
 
+# --- ran out of space (added 2026-11-11) ---------------------------------------------
+# reflect_fix and critic_fix only: added to the test feedback when the arm's previous answer hit max_tokens.
+CUT_OFF_NOTE = ("\n\nNote: your previous answer ran out of space (it reached the output length limit) before it "
+                "was finished. This time keep the reasoning short, so that the complete solution fits.")
 
-# Re-frozen 2026-11-11 to add CONTROL_SYSTEM (decided by the team after dev runs 2026-11-11_claude_dev_1-3,
-# pool tasks only). The 2026-11-04 fingerprint was c769b05400fdea1d6bffccf7a27e0bb929c7507017e5ea0f82c066450a39860a.
+
+# Every arm: one follow-up call after a retry answer that hit max_tokens.
+def finalize(problem: str, cut_off_answer: str) -> str:
+    return (f"## Task\n{problem}\n\n"
+            f"## Your unfinished answer\n{cut_off_answer.strip()}\n\n"
+            "## What to do\n"
+            "Your answer above ran out of space (it reached the output length limit) before it was finished. "
+            "Do not continue the reasoning. Give the final version of your solution now.\n\n"
+            f"{OUTPUT_CONTRACT} Write nothing outside the code block.")
+
+
+# Re-frozen 2026-11-11, twice, after dev runs 2026-11-11_claude_dev_1-3 (pool tasks only):
+# 1. to add CONTROL_SYSTEM (fingerprint e5cbb6832c9d387e62c50c5d1b8eddf5a31a548e19ebab13a3b5e9449feebef0);
+# 2. to add CUT_OFF_NOTE and finalize(). These two have not had a paid dev run yet.
+# The 2026-11-04 fingerprint was c769b05400fdea1d6bffccf7a27e0bb929c7507017e5ea0f82c066450a39860a.
 FROZEN_DATE = "2026-11-11"
-FROZEN_FINGERPRINT = "e5cbb6832c9d387e62c50c5d1b8eddf5a31a548e19ebab13a3b5e9449feebef0"  # fingerprint() on FROZEN_DATE
+FROZEN_FINGERPRINT = "1bcce0baadbd00f3dd886c25fbc213005ad37c85633c9d531daffcc12d1b533d"  # fingerprint() on FROZEN_DATE
 
 
 def fingerprint() -> str:
@@ -124,7 +148,8 @@ def fingerprint() -> str:
     problem, code = "Write f(x).", "def f(x):\n    return x"
     fb, critique = "1 of 2 public tests failed.", "- returns x unchanged"
     parts = [GENERATOR_SYSTEM, CONTROL_SYSTEM, CRITIC_SYSTEM, OUTPUT_CONTRACT, bare_retry(problem, code),
-             reflect_fix(problem, code, fb), critic_review(problem, code, fb), critic_fix(problem, code, fb, critique)]
+             reflect_fix(problem, code, fb), critic_review(problem, code, fb), critic_fix(problem, code, fb, critique),
+             CUT_OFF_NOTE, finalize(problem, code)]
     return hashlib.sha256("\n\x00\n".join(parts).encode()).hexdigest()
 
 if __name__ == "__main__":

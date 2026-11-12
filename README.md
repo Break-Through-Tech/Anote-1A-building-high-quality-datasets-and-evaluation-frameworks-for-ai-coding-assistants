@@ -32,7 +32,9 @@
 ## 🧪 **Experiment settings**
 
 - Model: `claude-sonnet-4-6` (Anthropic API) for every arm, decided 2026-11-03. Temperature 0.5, `max_tokens` 4096, within a $50 API budget tracked in `runs/usage_log.csv`.
-- Evaluator-Optimizer loop: `python Optimizer/loop.py claude --ids pilot.txt` (see `Optimizer/LOOP.md`).
+- Evaluator-Optimizer loop: `python Optimizer/loop.py claude --split test --ids pilot.txt` (see `Optimizer/LOOP.md`).
+- Answers that hit the token limit (added 2026-11-11): in every arm, a cut-off retry answer gets one follow-up call that asks only for the final code. The reports also show each result with and without the tasks where an answer was cut off.
+- Side research question (added 2026-11-11): **does telling the model it ran out of space help?** The two feedback arms (reflect-then-fix and critic) are told when their previous answer was cut off; control and bare retry never are. The report counts how often the next answer is cut off again in each arm.
 
 ---
 

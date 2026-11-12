@@ -10,8 +10,10 @@ Names, the same in summary.json, the report and results.py's tables:
   *_excl_failed                  those tasks are left out. Failed retries count 0 in both
 
 Report sections: run health, main results (zero-shot, each arm at attempt 3, Panacea), all tasks by attempt,
-the A/B/C/D cells, self-correction (C + D), breakdowns by source/difficulty and failure type, paired tests,
-task ids, notes.
+the A/B/C/D cells, self-correction (C + D), breakdowns by source/difficulty and failure type, cut-off
+sensitivity (the results with and without the tasks where an answer hit max_tokens), whether telling the model
+it ran out of space helps (answers cut off again after a cut-off answer, told vs not told), paired tests, task
+ids, notes.
 
 Paired tests are exact McNemar tests on per-task hidden pass/fail. p_holm is Holm-adjusted within a family, so
 one family's result doesn't depend on which others are present. feedback_vs_control (each feedback arm vs the
@@ -208,6 +210,7 @@ def summarize_run(run_dir: Path) -> dict:
     where = lambda r: f"{r['task_id']}/{r['arm']}/{r['attempt']}"
     diagnostics = {
         "truncated": [where(r) for r in ran if r.get("stop_reason") == "max_tokens"],
+        "finalized": [where(r) for r in ran if r.get("finalized")],
         "no_python_block": [where(r) for r in ran if not r["failed_run"] and r.get("n_python_blocks") == 0],
         "several_python_blocks": [where(r) for r in ran if (r.get("n_python_blocks") or 0) > 1],
         "critiques_with_code": [where(r) for r in ran if r.get("critique_has_code")],
@@ -215,6 +218,34 @@ def summarize_run(run_dir: Path) -> dict:
                                 "output": round(sum(r["output_tokens"] for r in g) / sum(r["calls"] for r in g))}
                             for a in [ZERO_SHOT] + arms if (g := [r for r in ran if r["arm"] == a])},
     }
+    # Cut-off sensitivity: the same numbers with and without the tasks where any answer (attempt 0 or any arm)
+    # hit max_tokens. A task is dropped for every arm at once, so the arms stay paired.
+    cut = lambda r: r.get("stop_reason") == "max_tokens"  # noqa: E731
+    cut_ids = sorted({r["task_id"] for r in ran if cut(r)})
+    clean_all, clean_paired = [t for t in all_ids if t not in cut_ids], [t for t in paired if t not in cut_ids]
+    last = lambda ids, arm: _mean([row_at(t, arm, retries)["hidden_score"] for t in ids])  # noqa: E731
+    sensitivity = {
+        "cut_off_task_ids": cut_ids,
+        "n_all_tasks": len(all_ids), "n_all_tasks_no_cut_off": len(clean_all),
+        "n_paired": len(paired), "n_paired_no_cut_off": len(clean_paired),
+        "zero_shot": {"answers": len([r for r in ran if r["arm"] == ZERO_SHOT]),
+                      "cut_off_answers": sum(cut(r) for r in ran if r["arm"] == ZERO_SHOT),
+                      "all_tasks": _mean([a0_by_id[t]["hidden_score"] for t in all_ids]),
+                      "all_tasks_no_cut_off": _mean([a0_by_id[t]["hidden_score"] for t in clean_all])},
+        "arms": {a: {"answers": len([r for r in ran if r["arm"] == a]),
+                     "cut_off_answers": sum(cut(r) for r in ran if r["arm"] == a),
+                     "all_tasks": last(all_ids, a), "all_tasks_no_cut_off": last(clean_all, a),
+                     "paired": last(paired, a), "paired_no_cut_off": last(clean_paired, a)} for a in arms},
+    }
+
+    def after_cut_off(arm):
+        """Retry answers whose previous attempt in this arm hit max_tokens: how many were cut off again.
+        reflect_fix and critic are told the previous answer ran out of space (told_cut_off); the others aren't."""
+        nxt = [r for (t, a, k), r in by_key.items() if a == arm and r["calls"] and not r["carried_forward"]
+               and not r["failed_run"] and cut(row_at(t, arm, k - 1))]
+        return {"answers": len(nxt), "told": sum(bool(r.get("told_cut_off")) for r in nxt),
+                "cut_off_again": sum(cut(r) for r in nxt)}
+
     final = lambda arm: {t: int(row_at(t, arm, retries)["hidden_score"] == 1.0) for t in all_ids}  # noqa: E731
     zero = {t: int(a0_by_id[t]["hidden_score"] == 1.0) for t in all_ids}
     tests = [paired_row("feedback_vs_control", f"{a} vs control", retries, final(a), final("control"))
@@ -238,6 +269,8 @@ def summarize_run(run_dir: Path) -> dict:
         "paired_task_ids": paired,
         "incomplete_task_ids": incomplete,
         "diagnostics": diagnostics,
+        "cut_off_sensitivity": sensitivity,
+        "after_cut_off": {a: after_cut_off(a) for a in arms},
         "paired_tests": add_holm(tests),
         "arms": per_arm,
         "all_tasks_by_source_difficulty": {
@@ -317,6 +350,8 @@ def render_report(s, meta, run_name, baselines=(), extra_tests=()):
              "\"excl. failed\" leaves those tasks out. Failed retries count 0 in both.", "",
              "## Run health", "Failed API calls per attempt:", *_table(["arm", *attempts, "total"], health), "",
              f"Truncated answers: {len(d['truncated'])} {d['truncated'] or ''}",
+             f"Finalized answers (cut off, then a follow-up call gave the final code): "
+             f"{len(d.get('finalized', []))} {d.get('finalized') or ''}",
              f"No code block: {len(d['no_python_block'])} {d['no_python_block'] or ''}",
              f"Several code blocks: {len(d['several_python_blocks'])} {d['several_python_blocks'] or ''}",
              f"Critiques containing code: {len(d['critiques_with_code'])} {d['critiques_with_code'] or ''}",
@@ -348,6 +383,24 @@ def render_report(s, meta, run_name, baselines=(), extra_tests=()):
                        ("Self-correction by attempt-0 failure type (C + D)", "by_attempt0_failure_type")):
         lines += [f"## {title}", *_table(["group", "n", *arms], [[g, x["n"], *[_curve(x[arm]) for arm in arms]]
                                                                 for g, x in s[key].items()]), ""]
+    cs = s["cut_off_sensitivity"]
+    lines += [f"## Cut-off sensitivity (hidden pass@1 at attempt {retries})",
+              f"Tasks where any answer hit max_tokens: {len(cs['cut_off_task_ids'])} of {cs['n_all_tasks']} "
+              f"{cs['cut_off_task_ids'] or ''}. The right-hand columns leave those tasks out for every arm. If the "
+              "arms compare the same way with and without them, the token limit doesn't change the conclusion. "
+              "With 0 tasks left in a column, this run can't tell.",
+              *_table(["arm", "cut-off answers", f"all tasks (n={cs['n_all_tasks']})",
+                       f"without cut-off tasks (n={cs['n_all_tasks_no_cut_off']})", f"C + D (n={cs['n_paired']})",
+                       f"C + D without cut-off tasks (n={cs['n_paired_no_cut_off']})"],
+                      [[name, f"{x['cut_off_answers']}/{x['answers']}", x["all_tasks"], x["all_tasks_no_cut_off"],
+                        x.get("paired"), x.get("paired_no_cut_off")]
+                       for name, x in [("zero-shot", cs["zero_shot"]), *cs["arms"].items()]]), ""]
+    lines += ["## Does telling the model it ran out of space help?",
+              "Retry answers whose previous attempt in the same arm hit max_tokens. reflect_fix and critic are told "
+              "so in the test feedback; control and bare_retry never are. Fewer answers cut off again in the told "
+              "arms would mean the note helps.",
+              *_table(["arm", "answers after a cut-off answer", "told", "cut off again"],
+                      [[arm, x["answers"], x["told"], x["cut_off_again"]] for arm, x in s["after_cut_off"].items()]), ""]
     lines += ["## Paired tests (exact McNemar, hidden pass/fail per task)",
               f"p (Holm) is corrected within each family. Significant: p (Holm) below {ALPHA}. The feedback_vs_control "
               "family answers whether feedback beats a fresh resample.",

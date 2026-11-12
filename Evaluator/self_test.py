@@ -390,6 +390,8 @@ def loop(items, hidden):
         t, arm, k, role = item["id"][-1], item["_arm"], item["_attempt"], item["_role"]
         if role == "critic":
             return "- returns None", 5, "mock", 50
+        if role == "finalize":
+            return wrong, 10, "mock", 100
         if k == 0:
             if t == "E":
                 raise AdapterError("scripted API error")
@@ -399,7 +401,8 @@ def loop(items, hidden):
         if t == "C":
             return (wrong if arm == "control" else k1), 10, "mock", 100
         fixed = arm in ("bare_retry", "reflect_fix") and k >= 2
-        return (ref if fixed else wrong), 10, "mock", 100
+        cut_off = ["max_tokens"] if t == "D" and (arm, k) in (("critic", 2), ("control", 1)) else []
+        return (ref if fixed else wrong), 10, "mock", 100, *cut_off
 
     p = {"config": {"model": "mock", "max_tokens": None, "temperature": None}, "call": call}
     arms = list(lp.rp.ARMS)
@@ -450,6 +453,13 @@ def loop(items, hidden):
     check("loop: critic attempts make two calls, and every call is one usage-log row",
           by[("D", "critic", 1)]["calls"] == 2 and n_logged == sum(r["calls"] for r in rows),
           (n_logged, sum(r["calls"] for r in rows)))
+    cut, told, note = by[("D", "critic", 2)], by[("D", "critic", 3)], lp.rp.CUT_OFF_NOTE.strip()
+    check("loop: a cut-off retry gets one finalize call, and only the feedback arms are told it ran out of space",
+          cut["finalized"] and cut["calls"] == 3 and cut["stop_reason"] == "max_tokens" and cut["draft_output"]
+          and told["told_cut_off"] and note in told["prompt"] and by[("D", "control", 1)]["finalized"]
+          and not by[("D", "control", 2)]["told_cut_off"] and note not in by[("D", "control", 2)]["prompt"]
+          and s["after_cut_off"]["critic"] == {"answers": 1, "told": 1, "cut_off_again": 0}
+          and s["after_cut_off"]["control"] == {"answers": 1, "told": 0, "cut_off_again": 0}, cut)
     check("loop: token counts are the API's (only failed calls are estimated)",
           by[("A", "zero_shot", 0)]["tokens_estimated"] == 0 and by[("E", "zero_shot", 0)]["tokens_estimated"] == 1
           and by[("A", "zero_shot", 0)]["input_tokens"] == 100, by[("A", "zero_shot", 0)])
