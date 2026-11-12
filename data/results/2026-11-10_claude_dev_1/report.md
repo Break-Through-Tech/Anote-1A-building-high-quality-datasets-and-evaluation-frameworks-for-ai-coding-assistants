@@ -1,4 +1,4 @@
-# Results: 2026-11-10_claude_dev
+# Results: 2026-11-10_claude_dev_1
 
 Model claude-sonnet-4-6, temperature 0.5, max_tokens 4096, task list None (10 tasks), split dev, scoring_version 2. Status: finished.
 Pass@1 is on the hidden tests unless marked public. Failed attempt-0 API calls count 0; "excl. failed" leaves those tasks out. Failed retries count 0 in both.
