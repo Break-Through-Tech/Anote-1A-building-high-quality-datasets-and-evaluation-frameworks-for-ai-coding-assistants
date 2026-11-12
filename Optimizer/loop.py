@@ -244,7 +244,8 @@ def run_task(p, client, item, arms, retries, row0=None):
             else:
                 raise ValueError(arm)
             if error is None:
-                text, error, u = ask(p, client, item, prompt, rp.GENERATOR_SYSTEM, tid, arm, k, "generator")
+                system = rp.CONTROL_SYSTEM if arm == "control" else rp.GENERATOR_SYSTEM
+                text, error, u = ask(p, client, item, prompt, system, tid, arm, k, "generator")
                 usage = {**_add_usage(usage, u), "stop_reason": u["stop_reason"]}
             else:
                 text = ""

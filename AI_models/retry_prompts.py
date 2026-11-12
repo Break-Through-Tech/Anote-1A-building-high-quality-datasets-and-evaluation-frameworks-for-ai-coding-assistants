@@ -10,7 +10,8 @@ that arm's one fixed strategy:
     arm               what the retry prompt contains                          API calls per retry
     ----------------  ------------------------------------------------------  -------------------
     control           the original prompt again (fresh resample)              1
-                      no old code, no feedback
+                      no old code, no feedback; CONTROL_SYSTEM asks for
+                      one code block (2026-11-11)
     bare_retry        problem + previous code + "it failed, try again"        1
                       (no test details)
     reflect_fix       problem + previous code + first failing public test     1
@@ -47,6 +48,11 @@ import hashlib
 ARMS = ("control", "bare_retry", "reflect_fix", "critic")
 
 GENERATOR_SYSTEM = "You are an expert coding assistant."  # same as the baseline / Panacea system prompt
+# Control only (added 2026-11-11): the attempt-0 prompt never asks for a code block, so in dev run
+# 2026-11-11_claude_dev_1 control twice ended with "[After careful implementation]" and no code. The other
+# arms already end with OUTPUT_CONTRACT. Attempt 0 keeps GENERATOR_SYSTEM (shared with baseline.py and Panacea).
+CONTROL_SYSTEM = (GENERATOR_SYSTEM + " Keep any reasoning brief and do not write drafts. Give your final "
+                  "solution in exactly one ```python code block, even if you are unsure.")
 CRITIC_SYSTEM = ("You are a meticulous code reviewer. You find the root cause of failing code. "
                  "You never write the corrected code yourself.")
 
@@ -115,7 +121,7 @@ def fingerprint() -> str:
     """sha256 of the system prompts and every arm's prompt, rendered on fixed sample inputs."""
     problem, code = "Write f(x).", "def f(x):\n    return x"
     fb, critique = "1 of 2 public tests failed.", "- returns x unchanged"
-    parts = [GENERATOR_SYSTEM, CRITIC_SYSTEM, OUTPUT_CONTRACT, bare_retry(problem, code),
+    parts = [GENERATOR_SYSTEM, CONTROL_SYSTEM, CRITIC_SYSTEM, OUTPUT_CONTRACT, bare_retry(problem, code),
              reflect_fix(problem, code, fb), critic_review(problem, code, fb), critic_fix(problem, code, fb, critique)]
     return hashlib.sha256("\n\x00\n".join(parts).encode()).hexdigest()
 

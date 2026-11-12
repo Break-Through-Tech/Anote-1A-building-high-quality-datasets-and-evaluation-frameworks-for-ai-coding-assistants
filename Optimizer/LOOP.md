@@ -17,7 +17,7 @@
 
 | arm | retry prompt | calls per retry |
 |---|---|---|
-| `control` | the attempt-0 prompt again: a fresh resample, with no old code and no feedback | 1 |
+| `control` | the attempt-0 prompt again: a fresh resample, with no old code and no feedback. Its system prompt (`CONTROL_SYSTEM`, added 2026-11-11) asks for brief reasoning and one code block, because the attempt-0 prompt never asks for code | 1 |
 | `bare_retry` | the arm's previous code + "it failed, try again" | 1 |
 | `reflect_fix` | the arm's previous code + the first failing **public** test; the model explains the error, then fixes it | 1 |
 | `critic` | a reviewer call diagnoses the code and the failing test (no code), then the generator fixes it | 2 |
