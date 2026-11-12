@@ -270,6 +270,13 @@ def git_commit():
     return r.stdout.strip() or None
 
 
+def git_dirty():
+    """Uncommitted changes outside the run's own outputs (the usage log and data/results/)."""
+    r = subprocess.run(["git", "-C", str(REPO_ROOT), "status", "--porcelain", "--", ".",
+                        ":!runs/usage_log.csv", ":!data/results"], capture_output=True, text=True)
+    return bool(r.stdout.strip()) if r.returncode == 0 else None
+
+
 # =====================================================================
 # ENTRY POINT
 # =====================================================================
@@ -282,7 +289,7 @@ def main():
     ap.add_argument("--ids", help="task list in data/unified/task_lists/ (e.g. pilot.txt)")
     ap.add_argument("--arms", nargs="+", choices=list(rp.ARMS), default=list(rp.ARMS))
     ap.add_argument("--retries", type=int, default=RETRIES)
-    ap.add_argument("--name", help="run folder name (default <date>_<provider>_<ids>)")
+    ap.add_argument("--name", help="run folder name (default <date>_<provider>_<split>[_<ids>]_<run number>)")
     ap.add_argument("--out", default=str(RESULTS_DIR), help="folder that holds the run folders (default data/results)")
     ap.add_argument("--resume", action="store_true", help="continue a run, skipping tasks already in attempt_0.jsonl")
     ap.add_argument("--summarize", metavar="RUN_DIR", help="only rebuild summary.json for an existing run")
@@ -299,7 +306,13 @@ def main():
     p = MOCK if args.provider == "mock" else PROVIDERS[args.provider]
     model = p["config"]["model"]
     stem = args.split + (f"_{Path(args.ids).stem}" if args.ids else "")
-    name = args.name or f"{datetime.date.today().isoformat()}_{args.provider}_{stem}"
+    name = args.name
+    if not name:  # <date>_<provider>_<stem>_<n>: n counts that day's runs; --resume continues the latest
+        base = f"{datetime.date.today().isoformat()}_{args.provider}_{stem}"
+        nums = [int(d.name.rsplit("_", 1)[1]) for d in Path(args.out).resolve().glob(f"{base}_*")
+                if d.name.rsplit("_", 1)[1].isdigit()]
+        n = max(nums, default=0) + (0 if args.resume and nums else 1)
+        name = f"{base}_{n}"
     run_dir = Path(args.out).resolve() / name
 
     if args.provider == "mock":  # keep mock rows out of the team's real budget log
@@ -313,13 +326,16 @@ def main():
     if args.provider != "mock" and args.split == "test" and rp.fingerprint() != rp.FROZEN_FINGERPRINT:
         sys.exit("AI_models/retry_prompts.py changed since the prompts were frozen "
                  f"({rp.FROZEN_DATE}). Changing them is a team decision: see that file's docstring.")
+    if args.provider != "mock" and args.split == "test" and git_dirty() is not False:
+        sys.exit("Uncommitted changes (git status): commit them first, so run_meta.json's git_commit "
+                 "is the code that ran. The usage log and data/results/ are not counted.")
     items = dev_items() if args.split == "dev" else select_ids(load_items(), read_task_list(args.ids))
     meta = {"scoring_version": SCORING_VERSION, "split": args.split, "provider": args.provider, "model": model,
             "max_tokens": p["config"].get("max_tokens"), "temperature": p["config"].get("temperature"),
             "ids_file": args.ids, "task_ids": [it["id"] for it in items], "arms": args.arms,
             "retries": args.retries, "rule": "copy-forward after a public pass",
             "retry_prompts_fingerprint": rp.fingerprint(),
-            "git_commit": git_commit(), "usage_log": str(bt.LOG_PATH),
+            "git_commit": git_commit(), "git_dirty": git_dirty(), "usage_log": str(bt.LOG_PATH),
             "started": datetime.datetime.now().isoformat(timespec="seconds"), "finished": None}
 
     meta_path = run_dir / "run_meta.json"

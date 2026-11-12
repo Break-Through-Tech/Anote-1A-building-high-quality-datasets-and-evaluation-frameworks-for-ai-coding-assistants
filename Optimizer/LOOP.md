@@ -65,7 +65,7 @@ Providers: `claude` and `mock` only (`opensource` was dropped from the loop on 2
 Options:
 - `--arms control reflect_fix` runs a subset of arms.
 - `--retries 3`.
-- `--name` sets the run folder name.
+- `--name` sets the run folder name. The default is `<date>_<provider>_<split>[_<task list>]_<n>`, where `n` numbers that day's runs (e.g. `2026-11-10_claude_dev_2`); `--resume` continues the latest one.
 - `--out` sets the folder that holds the run folders.
 
 Notes on running:
@@ -74,7 +74,7 @@ Notes on running:
 
 ## Before a paid run: checklist
 Run every step from the repo root, in order, and stop at the first one that fails.
-1. **Up to date:** `git pull`, so the usage log has everyone's spending. Check that `git status` is clean, so `run_meta.json` records the commit you actually ran.
+1. **Up to date:** `git pull`, so the usage log has everyone's spending. Check that `git status` is clean, so `run_meta.json` records the commit you actually ran. Every run records `git_dirty` (uncommitted changes outside `runs/usage_log.csv` and `data/results/`), and a `--split test` run refuses to start when it is true.
 2. **Nobody else is running a paid job right now** (ask the team). The $47 stop only sees your local log.
 3. **Setup:** `pip install -r requirements.txt` (pins `anthropic<1`), and `.env` holds `ANTHROPIC_API_KEY`.
 4. **Checks pass:** `python Evaluator/self_test.py` ends with `ALL TESTS PASSED`. That includes the check that the retry prompts are still the frozen ones (see below).
@@ -95,10 +95,10 @@ Run every step from the repo root, in order, and stop at the first one that fail
 - Mock runs write their own `usage_log.csv` inside the run folder, never the real one.
 - **The log is committed (decided 2026-11-03).** The $47 stop only sees the rows in your local copy, so: `git pull` before any paid run, and commit and push `runs/usage_log.csv` right after it. Two people running paid jobs at the same time would each miss the other's spending, and their logs would conflict on merge.
 
-## Results: `data/results/<date>_<provider>_<task list>/`
+## Results: `data/results/<date>_<provider>_<split>[_<task list>]_<n>/`
 | file | rows |
 |---|---|
-| `run_meta.json` | the settings: scoring version, provider, model, temperature, `max_tokens`, task ids, arms, retries, `retry_prompts_fingerprint`, git commit, start/finish |
+| `run_meta.json` | the settings: scoring version, provider, model, temperature, `max_tokens`, task ids, arms, retries, `retry_prompts_fingerprint`, git commit and `git_dirty`, start/finish |
 | `attempt_0.jsonl` | one per task |
 | `attempt_1.jsonl` … `attempt_3.jsonl` | one per (task that failed attempt 0's public tests × arm) |
 | `summary.json` | the numbers below |
