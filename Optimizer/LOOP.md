@@ -35,6 +35,7 @@ python Optimizer/loop.py mock --split dev                     # no API: checks t
 python Optimizer/loop.py claude --split dev                   # dev pilot: 10 pool tasks not in eval
 python Optimizer/loop.py claude --split dev --resume          # continue after a stop
 python Optimizer/loop.py claude --split dev --attempt0-from data/results/<run>  # reuse that run's attempt 0
+python Optimizer/loop.py claude --split dev --stop-at 10      # stop once the usage log totals $10
 python Optimizer/loop.py claude --split test --ids <list>     # the test run, once prompts are frozen
 python Optimizer/loop.py --summarize data/results/<run>       # rebuild summary.json and report.md
 python Baseline/baseline.py panacea --ids <list>              # Panacea's zero-shot arm, same tasks as the test run

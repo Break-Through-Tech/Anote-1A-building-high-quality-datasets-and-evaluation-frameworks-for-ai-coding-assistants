@@ -301,7 +301,12 @@ def main():
     ap.add_argument("--attempt0-from", metavar="RUN_DIR",
                     help="reuse that run's attempt-0 answers (no new calls), so both runs retry the same tasks "
                          "from the same code and differ only in the retries")
+    ap.add_argument("--stop-at", type=float, metavar="USD",
+                    help=f"stop new calls once runs/usage_log.csv totals this much (can only lower the "
+                         f"${bt.STOP_AT_USD:.0f} limit); pass the same value to several runs to cap them together")
     args = ap.parse_args()
+    if args.stop_at is not None:
+        bt.STOP_AT_USD = min(args.stop_at, bt.STOP_AT_USD)
 
     if args.summarize:
         write_report(Path(args.summarize))
