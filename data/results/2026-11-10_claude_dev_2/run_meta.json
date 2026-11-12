@@ -1,0 +1,34 @@
+{
+  "scoring_version": 3,
+  "split": "dev",
+  "provider": "claude",
+  "model": "claude-sonnet-4-6",
+  "max_tokens": 8192,
+  "temperature": 0.5,
+  "ids_file": null,
+  "task_ids": [
+    "mbpp-471",
+    "mbpp-227",
+    "mbpp-250",
+    "livecodebench-abc390_a",
+    "livecodebench-3705",
+    "livecodebench-abc400_c",
+    "livecodebench-3794",
+    "livecodebench-arc190_a",
+    "livecodebench-abc397_g",
+    "livecodebench-3717"
+  ],
+  "arms": [
+    "control",
+    "bare_retry",
+    "reflect_fix",
+    "critic"
+  ],
+  "retries": 3,
+  "rule": "copy-forward after a public pass",
+  "retry_prompts_fingerprint": "c769b05400fdea1d6bffccf7a27e0bb929c7507017e5ea0f82c066450a39860a",
+  "git_commit": "e22669f3cb30cd938f29262eef84c27a5705e1d4",
+  "usage_log": "/Users/diadana/Documents/GitHub/Anote-1A-building-high-quality-datasets-and-evaluation-frameworks-for-ai-coding-assistants/runs/usage_log.csv",
+  "started": "2026-11-10T21:26:42",
+  "finished": "2026-11-10T23:46:03"
+}
