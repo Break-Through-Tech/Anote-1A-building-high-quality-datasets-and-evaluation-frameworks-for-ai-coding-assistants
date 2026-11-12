@@ -350,7 +350,7 @@ def render_report(s, meta, run_name, baselines=(), extra_tests=()):
              "\"excl. failed\" leaves those tasks out. Failed retries count 0 in both.", "",
              "## Run health", "Failed API calls per attempt:", *_table(["arm", *attempts, "total"], health), "",
              f"Truncated answers: {len(d['truncated'])} {d['truncated'] or ''}",
-             f"Finalized answers (cut off, then a follow-up call gave the final code): "
+             f"Finalized answers (cut off with no complete code block, then a follow-up call gave the final code): "
              f"{len(d.get('finalized', []))} {d.get('finalized') or ''}",
              f"No code block: {len(d['no_python_block'])} {d['no_python_block'] or ''}",
              f"Several code blocks: {len(d['several_python_blocks'])} {d['several_python_blocks'] or ''}",

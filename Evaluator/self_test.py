@@ -402,7 +402,10 @@ def loop(items, hidden):
             return (wrong if arm == "control" else k1), 10, "mock", 100
         fixed = arm in ("bare_retry", "reflect_fix") and k >= 2
         cut_off = ["max_tokens"] if t == "D" and (arm, k) in (("critic", 2), ("control", 1)) else []
-        return (ref if fixed else wrong), 10, "mock", 100, *cut_off
+        text = ref if fixed else wrong
+        if cut_off and arm == "critic":  # cut off inside its only code block; control's cut-off answer has a complete one
+            text = wrong.rsplit(F, 1)[0]
+        return text, 10, "mock", 100, *cut_off
 
     p = {"config": {"model": "mock", "max_tokens": None, "temperature": None}, "call": call}
     arms = list(lp.rp.ARMS)
@@ -454,9 +457,12 @@ def loop(items, hidden):
           by[("D", "critic", 1)]["calls"] == 2 and n_logged == sum(r["calls"] for r in rows),
           (n_logged, sum(r["calls"] for r in rows)))
     cut, told, note = by[("D", "critic", 2)], by[("D", "critic", 3)], lp.rp.CUT_OFF_NOTE.strip()
-    check("loop: a cut-off retry gets one finalize call, and only the feedback arms are told it ran out of space",
+    kept = by[("D", "control", 1)]
+    check("loop: a cut-off retry with no complete code block gets one finalize call (one with a complete block gets "
+          "none), and only the feedback arms are told it ran out of space",
           cut["finalized"] and cut["calls"] == 3 and cut["stop_reason"] == "max_tokens" and cut["draft_output"]
-          and told["told_cut_off"] and note in told["prompt"] and by[("D", "control", 1)]["finalized"]
+          and told["told_cut_off"] and note in told["prompt"]
+          and not kept["finalized"] and kept["calls"] == 1 and kept["stop_reason"] == "max_tokens"
           and not by[("D", "control", 2)]["told_cut_off"] and note not in by[("D", "control", 2)]["prompt"]
           and s["after_cut_off"]["critic"] == {"answers": 1, "told": 1, "cut_off_again": 0}
           and s["after_cut_off"]["control"] == {"answers": 1, "told": 0, "cut_off_again": 0}, cut)

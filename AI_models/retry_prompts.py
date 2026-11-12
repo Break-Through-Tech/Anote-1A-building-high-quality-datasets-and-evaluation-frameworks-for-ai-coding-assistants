@@ -25,8 +25,10 @@ that arm's one fixed strategy:
 The failing-test text comes from Evaluator.evaluator.format_feedback(public_result).
 
 Answers that hit max_tokens (added 2026-11-11; attempt 0 is never changed):
-- Every arm: a retry answer that hits max_tokens gets ONE follow-up call, finalize(), that shows the model
-  its unfinished answer and asks only for the final code. That reply is what gets scored.
+- Every arm: a retry answer that hits max_tokens with no complete code block gets ONE follow-up call,
+  finalize(), that shows the model its unfinished answer and asks only for the final code. That reply is what
+  gets scored. A cut-off answer that already holds a complete code block gets no follow-up (2026-11-12: in dev
+  run 2026-11-12_claude_dev_1 all 4 finalize calls scored the same as the cut-off answer).
 - reflect_fix and critic only: when the arm's previous answer hit max_tokens, CUT_OFF_NOTE is added to the
   test feedback. It is true evaluator feedback, and it tests a small research question: does telling the
   model it ran out of space help? control and bare_retry get no feedback by design, so they are the comparison.
@@ -125,7 +127,7 @@ CUT_OFF_NOTE = ("\n\nNote: your previous answer ran out of space (it reached the
                 "was finished. This time keep the reasoning short, so that the complete solution fits.")
 
 
-# Every arm: one follow-up call after a retry answer that hit max_tokens.
+# Every arm: one follow-up call after a retry answer that hit max_tokens with no complete code block.
 def finalize(problem: str, cut_off_answer: str) -> str:
     return (f"## Task\n{problem}\n\n"
             f"## Your unfinished answer\n{cut_off_answer.strip()}\n\n"
@@ -137,7 +139,7 @@ def finalize(problem: str, cut_off_answer: str) -> str:
 
 # Re-frozen 2026-11-11, twice, after dev runs 2026-11-11_claude_dev_1-3 (pool tasks only):
 # 1. to add CONTROL_SYSTEM (fingerprint e5cbb6832c9d387e62c50c5d1b8eddf5a31a548e19ebab13a3b5e9449feebef0);
-# 2. to add CUT_OFF_NOTE and finalize(). These two have not had a paid dev run yet.
+# 2. to add CUT_OFF_NOTE and finalize(). Both first ran in dev run 2026-11-12_claude_dev_1.
 # The 2026-11-04 fingerprint was c769b05400fdea1d6bffccf7a27e0bb929c7507017e5ea0f82c066450a39860a.
 FROZEN_DATE = "2026-11-11"
 FROZEN_FINGERPRINT = "1bcce0baadbd00f3dd886c25fbc213005ad37c85633c9d531daffcc12d1b533d"  # fingerprint() on FROZEN_DATE

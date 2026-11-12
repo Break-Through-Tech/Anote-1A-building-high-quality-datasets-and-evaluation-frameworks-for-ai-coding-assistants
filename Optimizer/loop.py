@@ -14,8 +14,10 @@ Evaluator-Optimizer loop v1 (Milestone #2). For every task:
   Every retry shows only that arm's LATEST attempt (retry_prompts.py).
 
 Answers that hit max_tokens (2026-11-11; attempt 0 is never changed):
-  - every arm: one follow-up call ("finalize") shows the model its unfinished retry answer and asks only for
-    the final code, which is what gets scored (finalized = true; draft_output keeps the cut-off answer)
+  - every arm: a cut-off retry answer with no complete code block gets one follow-up call ("finalize") that
+    shows the model its unfinished answer and asks only for the final code, which is what gets scored
+    (finalized = true; draft_output keeps the cut-off answer). A cut-off answer that already holds a
+    complete code block is scored as it is, with no extra call (2026-11-12)
   - reflect_fix and critic: when the arm's previous answer hit max_tokens, the test feedback says so
     (told_cut_off = true). control and bare_retry are never told: does telling the model help?
 
@@ -199,8 +201,9 @@ def make_row(item, arm, attempt, prompt, output, public, hidden, usage, critique
         "critique_has_code": None if critique is None else ("```" in critique or "def " in critique),
         "failed_run": failed, "error": error or (hidden["error"] if hidden["error"] else None),
         **usage,
-        # finalized: the answer hit max_tokens and a follow-up call gave the final code (output); draft_output
-        # is the cut-off answer. told_cut_off: the prompt said the previous answer ran out of space.
+        # finalized: the answer hit max_tokens with no complete code block and a follow-up call gave the final
+        # code (output); draft_output is the cut-off answer. told_cut_off: the prompt said the previous answer
+        # ran out of space.
         "finalized": draft is not None, "told_cut_off": told_cut_off,
         "prompt": prompt, "critique": critique, "output": output, "draft_output": draft,
     }
@@ -214,6 +217,11 @@ def carry_forward(prev_row, attempt):
 def hit_limit(row):
     """The answer reached max_tokens (the row keeps that stop_reason even after a finalize call)."""
     return row.get("stop_reason") == "max_tokens"
+
+
+def has_complete_code(text):
+    """The answer holds a finished Python code block, which is what extract_code() scores."""
+    return any(closed and tag in _PYTHON_TAGS for tag, _, closed in _fenced_blocks(text or ""))
 
 
 # =====================================================================
@@ -263,7 +271,8 @@ def run_task(p, client, item, arms, retries, row0=None):
                 system = rp.CONTROL_SYSTEM if arm == "control" else rp.GENERATOR_SYSTEM
                 text, error, u = ask(p, client, item, prompt, system, tid, arm, k, "generator")
                 usage = {**_add_usage(usage, u), "stop_reason": u["stop_reason"]}
-                if error is None and u["stop_reason"] == "max_tokens":  # every arm: one follow-up for the final code
+                # every arm: a cut-off answer with no complete code block gets one follow-up for the final code
+                if error is None and u["stop_reason"] == "max_tokens" and not has_complete_code(text):
                     final, ferr, fu = ask(p, client, item, rp.finalize(item["prompt"], text), system, tid, arm, k,
                                           "finalize")
                     usage = {**_add_usage(usage, fu), "stop_reason": "max_tokens"}
