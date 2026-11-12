@@ -10,7 +10,8 @@ that arm's one fixed strategy:
     arm               what the retry prompt contains                          API calls per retry
     ----------------  ------------------------------------------------------  -------------------
     control           the original prompt again (fresh resample)              1
-                      no old code, no feedback
+                      no old code, no feedback; CONTROL_SYSTEM asks for
+                      one code block (2026-11-11)
     bare_retry        problem + previous code + "it failed, try again"        1
                       (no test details)
     reflect_fix       problem + previous code + first failing public test     1
@@ -22,6 +23,15 @@ that arm's one fixed strategy:
                       test + the critic's diagnosis -> fixed code
 
 The failing-test text comes from Evaluator.evaluator.format_feedback(public_result).
+
+Answers that hit max_tokens (added 2026-11-11; attempt 0 is never changed):
+- Every arm: a retry answer that hits max_tokens with no complete code block gets ONE follow-up call,
+  finalize(), that shows the model its unfinished answer and asks only for the final code. That reply is what
+  gets scored. A cut-off answer that already holds a complete code block gets no follow-up (2026-11-12: in dev
+  run 2026-11-12_claude_dev_1 all 4 finalize calls scored the same as the cut-off answer).
+- reflect_fix and critic only: when the arm's previous answer hit max_tokens, CUT_OFF_NOTE is added to the
+  test feedback. It is true evaluator feedback, and it tests a small research question: does telling the
+  model it ran out of space help? control and bare_retry get no feedback by design, so they are the comparison.
 
 Rules (same as prompts.py):
 - Only the item's prompt, the model's own previous code, and PUBLIC test feedback
@@ -47,6 +57,11 @@ import hashlib
 ARMS = ("control", "bare_retry", "reflect_fix", "critic")
 
 GENERATOR_SYSTEM = "You are an expert coding assistant."  # same as the baseline / Panacea system prompt
+# Control only (added 2026-11-11): the attempt-0 prompt never asks for a code block, so in dev run
+# 2026-11-11_claude_dev_1 control twice ended with "[After careful implementation]" and no code. The other
+# arms already end with OUTPUT_CONTRACT. Attempt 0 keeps GENERATOR_SYSTEM (shared with baseline.py and Panacea).
+CONTROL_SYSTEM = (GENERATOR_SYSTEM + " Keep any reasoning brief and do not write drafts. Give your final "
+                  "solution in exactly one ```python code block, even if you are unsure.")
 CRITIC_SYSTEM = ("You are a meticulous code reviewer. You find the root cause of failing code. "
                  "You never write the corrected code yourself.")
 
@@ -106,17 +121,37 @@ def critic_fix(problem: str, prev_code: str, feedback: str, critique: str) -> st
             f"{OUTPUT_CONTRACT}")
 
 
+# --- ran out of space (added 2026-11-11) ---------------------------------------------
+# reflect_fix and critic_fix only: added to the test feedback when the arm's previous answer hit max_tokens.
+CUT_OFF_NOTE = ("\n\nNote: your previous answer ran out of space (it reached the output length limit) before it "
+                "was finished. This time keep the reasoning short, so that the complete solution fits.")
 
-FROZEN_DATE = "2026-11-04"
-FROZEN_FINGERPRINT = "c769b05400fdea1d6bffccf7a27e0bb929c7507017e5ea0f82c066450a39860a"  # fingerprint() on FROZEN_DATE
+
+# Every arm: one follow-up call after a retry answer that hit max_tokens with no complete code block.
+def finalize(problem: str, cut_off_answer: str) -> str:
+    return (f"## Task\n{problem}\n\n"
+            f"## Your unfinished answer\n{cut_off_answer.strip()}\n\n"
+            "## What to do\n"
+            "Your answer above ran out of space (it reached the output length limit) before it was finished. "
+            "Do not continue the reasoning. Give the final version of your solution now.\n\n"
+            f"{OUTPUT_CONTRACT} Write nothing outside the code block.")
+
+
+# Re-frozen 2026-11-11, twice, after dev runs 2026-11-11_claude_dev_1-3 (pool tasks only):
+# 1. to add CONTROL_SYSTEM (fingerprint e5cbb6832c9d387e62c50c5d1b8eddf5a31a548e19ebab13a3b5e9449feebef0);
+# 2. to add CUT_OFF_NOTE and finalize(). Both first ran in dev run 2026-11-12_claude_dev_1.
+# The 2026-11-04 fingerprint was c769b05400fdea1d6bffccf7a27e0bb929c7507017e5ea0f82c066450a39860a.
+FROZEN_DATE = "2026-11-11"
+FROZEN_FINGERPRINT = "1bcce0baadbd00f3dd886c25fbc213005ad37c85633c9d531daffcc12d1b533d"  # fingerprint() on FROZEN_DATE
 
 
 def fingerprint() -> str:
     """sha256 of the system prompts and every arm's prompt, rendered on fixed sample inputs."""
     problem, code = "Write f(x).", "def f(x):\n    return x"
     fb, critique = "1 of 2 public tests failed.", "- returns x unchanged"
-    parts = [GENERATOR_SYSTEM, CRITIC_SYSTEM, OUTPUT_CONTRACT, bare_retry(problem, code),
-             reflect_fix(problem, code, fb), critic_review(problem, code, fb), critic_fix(problem, code, fb, critique)]
+    parts = [GENERATOR_SYSTEM, CONTROL_SYSTEM, CRITIC_SYSTEM, OUTPUT_CONTRACT, bare_retry(problem, code),
+             reflect_fix(problem, code, fb), critic_review(problem, code, fb), critic_fix(problem, code, fb, critique),
+             CUT_OFF_NOTE, finalize(problem, code)]
     return hashlib.sha256("\n\x00\n".join(parts).encode()).hexdigest()
 
 if __name__ == "__main__":

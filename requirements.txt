@@ -5,3 +5,4 @@ openai
 pandas  # notebooks and budget_tracker.summarize()
 numpy  # some MBPP hidden tests import it (e.g. mbpp-622); results.py's bootstrap
 matplotlib  # Optimizer/charts.py (preinstalled in Colab)
+sortedcontainers  # LeetCode-style answers import it, and scored code runs in this environment

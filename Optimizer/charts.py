@@ -149,7 +149,7 @@ def _save(fig, out_dir, name):
 def accuracy_by_attempt(t, arms, last, banner):
     c, main = t["curves"], t["main"]
     pan = main[(main["system"] == "panacea") & (main["attempt"] == 0)]
-    pan_y = pan["hidden_pass@1_excl_failed"].iloc[0] if len(pan) else None
+    pan_y = pan["hidden_pass@1"].iloc[0] if len(pan) else None
     fig, axes = _fig(10.5, 4.6, ncols=2)
     for ax, scope, name, refs in ((axes[0, 0], "all", "All tasks (A and B keep attempt 0)", [("panacea", pan_y)]),
                                   (axes[0, 1], "paired", "Tasks that went into the arms (C + D)", [])):
@@ -160,8 +160,8 @@ def accuracy_by_attempt(t, arms, last, banner):
     extra = ([Line2D([], [], color=_color("panacea"), lw=1.2, ls=(0, (4, 3)), label="panacea (zero-shot)")]
              if pan_y is not None else [])
     _title(fig, "Hidden-test pass rate by attempt, per arm",
-           "Attempt 0 is the shared Claude zero-shot answer. Tasks whose attempt-0 API call failed are left out "
-           "(main.csv and curves.csv also count them as 0). Panacea: its own failed runs left out.", banner)
+           "Attempt 0 is the shared Claude zero-shot answer. Tasks whose attempt-0 API call failed count as 0, "
+           "and so do Panacea's failed runs.", banner)
     _legend(fig, arms, extra)
     fig.tight_layout(rect=(0, 0.06, 1, 0.92))
     return fig
@@ -339,7 +339,7 @@ def accuracy_vs_cost(t, arms, last, banner):
     if len(pan):
         p = pan.iloc[0]
         if p["cost_usd"] > 0:
-            pts.append(("panacea", p["cost_usd"], p["hidden_pass@1_excl_failed"]))
+            pts.append(("panacea", p["cost_usd"], p["hidden_pass@1"]))
         else:
             note = " Panacea has no logged cost, so it is not shown."
     fig, axes = _fig(7.5, 4.8)

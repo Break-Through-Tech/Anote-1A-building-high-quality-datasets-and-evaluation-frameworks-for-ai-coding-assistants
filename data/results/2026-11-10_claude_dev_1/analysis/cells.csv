@@ -1,0 +1,2 @@
+system,n,A_true_pass,B_false_pass,C_hidden_only_pass,D_true_fail,failed,B_mean_hidden_test_pass_rate,A_true_pass_ids,B_false_pass_ids,C_hidden_only_pass_ids,D_true_fail_ids,failed_ids
+claude,10,6,1,0,3,0,0.7,livecodebench-3705 livecodebench-3794 livecodebench-abc390_a mbpp-227 mbpp-250 mbpp-471,livecodebench-abc400_c,,livecodebench-3717 livecodebench-abc397_g livecodebench-arc190_a,

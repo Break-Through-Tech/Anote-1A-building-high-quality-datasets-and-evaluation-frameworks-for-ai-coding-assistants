@@ -13,7 +13,9 @@ real public tests (`tests`) and real hidden tests (unified_private_tests.jsonl.g
    LiveCodeBench, which ships no references); a do-nothing answer fails every task's hidden tests.
 2. Evaluator: a pass and a fail per test format, every rubric level, code extraction from
    different reply shapes, the LiveCodeBench import header, the subprocess isolation (no stdin,
-   no API keys), and feedback that shows public tests only.
+   no API keys), and feedback that shows public tests only. The checkers for tasks that accept
+   several correct answers (evaluator.CHECKERS) accept every real expected output and other correct
+   answers, and reject broken ones.
 3. Pipeline: prompts and retry prompts, baseline.py's run_one / summarize_run (hidden tests as
    the headline, public beside them), and compare_runs' guards.
 4. Loop: Optimizer/loop.py on one real MBPP task scripted into each attempt-0 cell (A true pass,
@@ -39,8 +41,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from Evaluator.evaluator import (DATASET_PATH, PRIVATE_TESTS_PATH, SCORING_VERSION, evaluate, extract_code,
-                                 format_feedback, load_items, load_private_tests)
+from Evaluator.evaluator import (CHECKERS, DATASET_PATH, PRIVATE_TESTS_PATH, SCORING_VERSION, _accepts, evaluate,
+                                 extract_code, format_feedback, load_items, load_private_tests, outputs_match)
 
 FIXTURES_PATH = Path(__file__).resolve().parent / "fixtures.json"
 F = "```"  # a markdown fence
@@ -130,6 +132,61 @@ def formats(items, fixtures):
               r_pass["score"] == 1.0 and r_fail["score"] == 0.0, (r_pass["error"], r_fail["score"]))
 
 
+# Tasks that accept several correct answers are scored by their own checker (evaluator.CHECKERS), not by
+# exact output. Other correct answers and broken answers below are hand-written for each task's first public test.
+CHECKER_CASES = {
+    # N = 5, intervals (2,4) (3,5) (1,4) (2,5); expected "2 / 2 0 1 0"
+    "livecodebench-arc190_a": (
+        ["2\n0 1 1 0", "2\n0 0 1 1"],
+        ["2\n1 0 0 1",   # position 1 is never set
+         "2\n2 2 0 0",   # positions 3 and 4 are never set
+         "3\n1 1 1 0",   # not the minimum cost
+         "2\n1 1 1 0",   # the cost line doesn't match the operations
+         "2\n0 1 1", "2\n0 1 1 x", "-1", ""]),
+    # expected "Yes"; the task's judge ignores case
+    "livecodebench-arc192_a": (["YES", "yes\n"], ["No", "Yes Yes", ""]),
+    # cases (R, B) = (2, 3), (1, 1), (4, 0); expected Yes + 5 pieces, No, Yes + 4 pieces
+    "livecodebench-arc195_c": (
+        ["Yes\nB 12 13\nR 13 12\nB 12 12\nB 13 13\nR 12 14\nNo\nYes\nR 5 5\nR 5 6\nR 6 6\nR 6 5"],
+        ["No\nNo\nYes\nR 1 1\nR 1 2\nR 2 2\nR 2 1",                                             # No where one exists
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nYes\nR 1 1\nB 2 2\nYes\nR 1 1\nR 1 2\nR 2 2\nR 2 1",  # Yes where none exists
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nNo\nYes\nR 1 1\nR 1 2\nR 1 1\nR 1 2",        # a square used twice
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nNo\nYes\nR 1 1\nR 1 2\nR 2 2\nR 3 1",        # last piece can't reach the first
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nNo\nYes\nB 1 1\nR 1 2\nR 2 2\nR 2 1",        # wrong number of red pieces
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nNo\nYes\nR 0 1\nR 0 2\nR 1 2\nR 1 1",        # off the board
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nNo\nYes\nR 1 1\nR 1 2\nR 2 2",                # a piece missing
+         "Yes\nB 2 3\nR 3 2\nB 2 2\nB 3 3\nR 2 4\nNo\nYes\nR 1 1\nR 1 2\nR 2 2\nR 2 1\nNo",    # extra output
+         ""]),
+}
+
+
+def checkers(items, hidden):
+    pool_path = REPO_ROOT / "data" / "unified" / "unified_pool.jsonl"
+    pool = {it["id"]: it for it in load_items(pool_path, scorable_only=False)}
+    tasks = {tid: items.get(tid) or pool[tid] for tid in CHECKERS}
+    check("checkers: every task with a checker has hand-written answers to test it", set(CHECKER_CASES) == set(CHECKERS),
+          sorted(set(CHECKER_CASES) ^ set(CHECKERS)))
+    n = 0
+    for tid, it in tasks.items():
+        for t in it["tests"] + hidden.get(tid, []):  # the dev task's hidden tests are not in the eval file
+            assert _accepts(CHECKERS[tid], t, t["output"]), (tid, "rejects its own expected output", t["input"][:80])
+            n += 1
+    check(f"checkers: {len(CHECKERS)} tasks accept the expected output of all their {n} real tests", True)
+    for tid, (correct, broken) in CHECKER_CASES.items():
+        t = tasks[tid]["tests"][0]
+        ok = all(_accepts(CHECKERS[tid], t, a) and not outputs_match(a, t["output"]) for a in correct)
+        bad = [b for b in broken if _accepts(CHECKERS[tid], t, b)]
+        check(f"checker {tid}: {len(correct)} other correct answers pass (exact match fails them), "
+              f"{len(broken)} broken answers fail", ok and not bad, bad)
+    it = tasks["livecodebench-arc190_a"]
+    one = {**it, "tests": it["tests"][:1]}
+    r_pass = evaluate(one, fenced('print("2")\nprint("0 1 1 0")'))
+    r_fail = evaluate(one, fenced('print("2")\nprint("1 0 0 1")'))
+    check("checkers: evaluate() uses the checker (another correct answer passes, a wrong one is a wrong_answer)",
+          r_pass["score"] == 1.0 and r_fail["score"] == 0.0 and r_fail["failure_type"] == "wrong_answer",
+          (r_pass["details"], r_fail["failure_type"]))
+
+
 # An answer that is the reference for its first k calls and returns None after that. Tests share one
 # process, so with one call per test it passes exactly the first k tests.
 def first_k_correct(item: dict, k: int) -> str:
@@ -190,12 +247,19 @@ def extraction(items, fixtures):
         r = evaluate(it, reply)
         check(f"extract: {name} -> passes {it['id']}'s real tests", r["score"] == 1.0, (extract_code(reply, ep), r["error"]))
     draft_then_fix = f"{fenced(stub(it))}\nFixed:\n{fenced(ref)}"
-    check("extract: draft then fix -> the first block that defines the function (Harold's order)",
-          extract_code(draft_then_fix, ep) == stub(it))
+    check("extract: draft then fix -> the last block that defines the function (scoring version 5)",
+          extract_code(draft_then_fix, ep) == ref and evaluate(it, draft_then_fix)["score"] == 1.0)
+    cut_off = f"{draft_then_fix}\nOne more try:\n{F}python\ndef {ep}(*args):\n    return"
+    check("extract: draft, fix, then a block cut off before its closing fence -> the last COMPLETE block",
+          extract_code(cut_off, ep) == ref)
     st = next(items[i] for i in fixtures if items[i]["test_format"] == "stdin_io")
     reply = f"Compile nothing:\n{F}bash\npython3 main.py < in.txt\n{F}\n{fenced(fixtures[st['id']])}"
     check(f"extract: bash block before a stdin program -> passes {st['id']}'s real tests",
           evaluate(st, reply)["score"] == 1.0)
+    prog = fixtures[st["id"]].strip()
+    reply = f"{fenced('x = input()')}\nRevised:\n{fenced(prog)}\nOutput:\n{F}\n42\n{F}"
+    check("extract: stdin draft, revised program, printed output -> the last program that reads stdin",
+          extract_code(reply, st["entry_point"]) == prog)
 
 
 def lcb_header(items, fixtures):
@@ -371,7 +435,7 @@ def loop(items, hidden):
     from AI_models import budget_tracker as bt
     from AI_models.providers import AdapterError
     from Optimizer import loop as lp
-    from Optimizer.report import mcnemar
+    from Optimizer import report
     from Optimizer.results import build
 
     it = next(i for i in items.values() if i["source"] == "mbpp" and i["reference"].count(i["entry_point"] + "(") == 1)
@@ -386,6 +450,8 @@ def loop(items, hidden):
         t, arm, k, role = item["id"][-1], item["_arm"], item["_attempt"], item["_role"]
         if role == "critic":
             return "- returns None", 5, "mock", 50
+        if role == "finalize":
+            return wrong, 10, "mock", 100
         if k == 0:
             if t == "E":
                 raise AdapterError("scripted API error")
@@ -395,7 +461,11 @@ def loop(items, hidden):
         if t == "C":
             return (wrong if arm == "control" else k1), 10, "mock", 100
         fixed = arm in ("bare_retry", "reflect_fix") and k >= 2
-        return (ref if fixed else wrong), 10, "mock", 100
+        cut_off = ["max_tokens"] if t == "D" and (arm, k) in (("critic", 2), ("control", 1)) else []
+        text = ref if fixed else wrong
+        if cut_off and arm == "critic":  # cut off inside its only code block; control's cut-off answer has a complete one
+            text = wrong.rsplit(F, 1)[0]
+        return text, 10, "mock", 100, *cut_off
 
     p = {"config": {"model": "mock", "max_tokens": None, "temperature": None}, "call": call}
     arms = list(lp.rp.ARMS)
@@ -410,9 +480,9 @@ def loop(items, hidden):
                  "task_ids": [variants[t]["id"] for t in "ABCDE"]}))
             for t in "ABCDE":
                 lp.append_task(run_dir, lp.run_task(p, None, variants[t], arms, 3))
-            s = lp.summarize_run(run_dir)
+            s = report.summarize_run(run_dir)
             tables, _ = build(run_dir, write=False)
-            rows = [r for k in range(4) for r in lp.read_rows(run_dir, k)]
+            rows = [r for k in range(4) for r in report.read_rows(run_dir, k)]
             with open(bt.LOG_PATH) as f:
                 n_logged = sum(1 for _ in f) - 1
         finally:
@@ -425,11 +495,11 @@ def loop(items, hidden):
           a0["cells"] == {"A_true_pass": 1, "B_false_pass": 1, "C_hidden_only_pass": 1, "D_true_fail": 1}
           and a0["failed_runs"] == 1 and a0["went_into_arms"] == 2 and a0["false_passes"] == 1, a0)
     final = {a: s["all_tasks"][a]["hidden_pass@1_by_attempt"][-1] for a in arms}
-    incl = {a: s["all_tasks"][a]["hidden_pass@1_incl_failed_by_attempt"][-1] for a in arms}
-    check("loop: all-task hidden pass@1 at attempt 3 (A and B keep attempt 0; failed runs left out / counted 0)",
-          final == {"control": 0.25, "bare_retry": 0.75, "reflect_fix": 0.75, "critic": 0.5}
-          and incl == {"control": 0.2, "bare_retry": 0.6, "reflect_fix": 0.6, "critic": 0.4}
-          and all(s["all_tasks"][a]["hidden_pass@1_by_attempt"][0] == 0.5 for a in arms), (final, incl))
+    excl = {a: s["all_tasks"][a]["hidden_pass@1_excl_failed_by_attempt"][-1] for a in arms}
+    check("loop: all-task hidden pass@1 at attempt 3 (A and B keep attempt 0; failed runs counted 0 / left out)",
+          final == {"control": 0.2, "bare_retry": 0.6, "reflect_fix": 0.6, "critic": 0.4}
+          and excl == {"control": 0.25, "bare_retry": 0.75, "reflect_fix": 0.75, "critic": 0.5}
+          and all(s["all_tasks"][a]["hidden_pass@1_excl_failed_by_attempt"][0] == 0.5 for a in arms), (final, excl))
     st = s["arms"]
     check("loop: repairs counted over D, breaks over C",
           [(st[a]["repairs"], st[a]["n_D_repair_targets"], st[a]["breaks"], st[a]["n_C_hidden_only_pass"]) for a in arms]
@@ -446,6 +516,16 @@ def loop(items, hidden):
     check("loop: critic attempts make two calls, and every call is one usage-log row",
           by[("D", "critic", 1)]["calls"] == 2 and n_logged == sum(r["calls"] for r in rows),
           (n_logged, sum(r["calls"] for r in rows)))
+    cut, told, note = by[("D", "critic", 2)], by[("D", "critic", 3)], lp.rp.CUT_OFF_NOTE.strip()
+    kept = by[("D", "control", 1)]
+    check("loop: a cut-off retry with no complete code block gets one finalize call (one with a complete block gets "
+          "none), and only the feedback arms are told it ran out of space",
+          cut["finalized"] and cut["calls"] == 3 and cut["stop_reason"] == "max_tokens" and cut["draft_output"]
+          and told["told_cut_off"] and note in told["prompt"]
+          and not kept["finalized"] and kept["calls"] == 1 and kept["stop_reason"] == "max_tokens"
+          and not by[("D", "control", 2)]["told_cut_off"] and note not in by[("D", "control", 2)]["prompt"]
+          and s["after_cut_off"]["critic"] == {"answers": 1, "told": 1, "cut_off_again": 0}
+          and s["after_cut_off"]["control"] == {"answers": 1, "told": 0, "cut_off_again": 0}, cut)
     check("loop: token counts are the API's (only failed calls are estimated)",
           by[("A", "zero_shot", 0)]["tokens_estimated"] == 0 and by[("E", "zero_shot", 0)]["tokens_estimated"] == 1
           and by[("A", "zero_shot", 0)]["input_tokens"] == 100, by[("A", "zero_shot", 0)])
@@ -455,7 +535,7 @@ def loop(items, hidden):
     main, tr = tables["main"], tables["transitions"]
     last = main[main["attempt"] == 3].set_index("system")["hidden_pass@1"].to_dict()
     check("results: main table matches summary.json (every arm, attempt 3, all tasks incl. failed runs as 0)",
-          all(last[a] == s["all_tasks"][a]["hidden_pass@1_incl_failed_by_attempt"][-1] for a in arms), last)
+          all(last[a] == s["all_tasks"][a]["hidden_pass@1_by_attempt"][-1] for a in arms), last)
     check("results: cells table matches, and transitions count the fix and the break",
           tables["cells"].iloc[0][["A_true_pass", "B_false_pass", "C_hidden_only_pass", "D_true_fail", "failed"]].tolist()
           == [1, 1, 1, 1, 1]
@@ -467,8 +547,10 @@ def loop(items, hidden):
     check("loop: the retry prompts are the frozen ones (AI_models/retry_prompts.py, FROZEN_FINGERPRINT)",
           lp.rp.fingerprint() == lp.rp.FROZEN_FINGERPRINT, lp.rp.FROZEN_DATE)
     check("report: exact McNemar (3 vs 0 discordant -> p = 0.25; none -> p = 1)",
-          mcnemar({1: 1, 2: 1, 3: 1, 4: 0}, {1: 0, 2: 0, 3: 0, 4: 0}) == (3, 0, 0.25)
-          and mcnemar({1: 1}, {1: 1})[2] == 1.0)
+          report.mcnemar({1: 1, 2: 1, 3: 1, 4: 0}, {1: 0, 2: 0, 3: 0, 4: 0}) == (3, 0, 0.25)
+          and report.mcnemar({1: 1}, {1: 1})[2] == 1.0)
+    check("report: Holm adjustment (0.01, 0.04, 0.03 -> 0.03, 0.06, 0.06)",
+          [round(p, 4) for p in report.holm([0.01, 0.04, 0.03])] == [0.03, 0.06, 0.06])
 
 
 def results_views():
@@ -477,7 +559,7 @@ def results_views():
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from Optimizer import loop as lp
+    from Optimizer import report
     from Optimizer.charts import draw_all
     from Optimizer.results import build
     from Optimizer.synthetic_run import write_run
@@ -485,9 +567,9 @@ def results_views():
     with tempfile.TemporaryDirectory() as tmp:
         run_dir = Path(tmp) / "run"
         write_run(run_dir, seed=7)
-        s = lp.summarize_run(run_dir)
+        s = report.summarize_run(run_dir)
         # a fake Panacea run in baseline.py's format, from the synthetic attempt 0 (outcomes flipped on a few)
-        a0 = lp.read_rows(run_dir, 0)
+        a0 = report.read_rows(run_dir, 0)
         pan = [{"id": r["task_id"], "score": float(i % 3 == 0) if r["failed_run"] else r["hidden_score"],
                 "n_passed": 10 if r["hidden_score"] == 1.0 else 3, "n_tests": 10, "test_pass_rate": r["hidden_test_pass_rate"],
                 "rubric_level": r["rubric_level"] if r["rubric_level"] is not None else 1, "level": r["level"] or "Wrong",
@@ -512,7 +594,7 @@ def results_views():
     curve = lambda scope, a, col="hidden_pass@1": c[(c["scope"] == scope) & (c["arm"] == a)].sort_values("attempt")[col].tolist()  # noqa: E731
     check("views: curves match summary.json (all tasks, incl. failed as 0, C + D, gain over control)",
           all(curve("all", a) == s["all_tasks"][a]["hidden_pass@1_by_attempt"]
-              and curve("all", a, "hidden_pass@1_incl_failed") == s["all_tasks"][a]["hidden_pass@1_incl_failed_by_attempt"]
+              and curve("all", a, "hidden_pass@1_excl_failed") == s["all_tasks"][a]["hidden_pass@1_excl_failed_by_attempt"]
               and curve("paired", a) == s["arms"][a]["hidden_pass@1_by_attempt"]
               and curve("paired", a, "gain_vs_control") == s["arms"][a]["gain_over_control_by_attempt"] for a in arms))
     o = tables["arm_outcomes"].set_index("arm")
@@ -543,7 +625,15 @@ def results_views():
     m, pt = tables["main"], tables["paired_tests"]
     check("views: Panacea is in the main, cells and paired-test tables",
           (m["system"] == "panacea").sum() == 1 and (tables["cells"]["system"] == "panacea").sum() == 1
-          and (pt["kind"] == "panacea").sum() == 1 + len(arms))
+          and (pt["family"] == "panacea").sum() == 1 + len(arms))
+    keep = ["comparison", "attempt", "only_first_passes", "only_second_passes", "p_exact_mcnemar", "p_holm", "significant"]
+    in_csv = pt[pt["family"].isin(["feedback_vs_control", "vs_zero_shot"])][keep].to_dict("records")
+    key = lambda r: (r["comparison"], r["attempt"])  # noqa: E731
+    check("report: summary.json's paired tests match results.py's (raw p, Holm p, verdict)",
+          sorted(in_csv, key=key) == sorted([{k: r[k] for k in keep} for r in s["paired_tests"]], key=key))
+    rep = report.render_report(s, meta, "run")
+    check("report: has run health and every arm's final hidden pass@1 from summary.json",
+          "## Run health" in rep and all(report.fmt(s["all_tasks"][a]["hidden_pass@1_by_attempt"][-1]) in rep for a in arms))
     check("views: every chart is drawn in both themes (9 for a code-generation run)",
           n_png == {"light": 9, "dark": 9}, n_png)
 
@@ -553,6 +643,7 @@ if __name__ == "__main__":
     items, hidden, fixtures = load()
     data(items, hidden, fixtures)
     formats(items, fixtures)
+    checkers(items, hidden)
     levels(items)
     extraction(items, fixtures)
     lcb_header(items, fixtures)
