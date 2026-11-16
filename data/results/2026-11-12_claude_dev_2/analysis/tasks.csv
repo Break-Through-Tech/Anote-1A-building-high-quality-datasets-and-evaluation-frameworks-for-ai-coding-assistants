@@ -1,0 +1,11 @@
+task_id,source,difficulty,test_format,claude_cell,zero_shot_hidden,zero_shot_level,control_a1_hidden,control_a1_level,control_a2_hidden,control_a2_level,control_a3_hidden,control_a3_level,bare_retry_a1_hidden,bare_retry_a1_level,bare_retry_a2_hidden,bare_retry_a2_level,bare_retry_a3_hidden,bare_retry_a3_level,reflect_fix_a1_hidden,reflect_fix_a1_level,reflect_fix_a2_hidden,reflect_fix_a2_level,reflect_fix_a3_hidden,reflect_fix_a3_level,critic_a1_hidden,critic_a1_level,critic_a2_hidden,critic_a2_level,critic_a3_hidden,critic_a3_level
+mbpp-471,mbpp,medium,assert_list,A_true_pass,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4
+mbpp-227,mbpp,hard,assert_list,A_true_pass,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4
+mbpp-250,mbpp,hard,assert_list,A_true_pass,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4
+livecodebench-abc390_a,livecodebench,easy,stdin_io,B_false_pass,7/10,3,7/10,3,7/10,3,7/10,3,7/10,3,7/10,3,7/10,3,7/10,3,7/10,3,7/10,3,7/10,3,7/10,3,7/10,3
+livecodebench-3705,livecodebench,easy,functional_io,A_true_pass,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4
+livecodebench-arc195_b,livecodebench,hard,stdin_io,B_false_pass,6/10,3,6/10,3,6/10,3,6/10,3,6/10,3,6/10,3,6/10,3,6/10,3,6/10,3,6/10,3,6/10,3,6/10,3,6/10,3
+livecodebench-arc194_d,livecodebench,hard,stdin_io,B_false_pass,8/10,3,8/10,3,8/10,3,8/10,3,8/10,3,8/10,3,8/10,3,8/10,3,8/10,3,8/10,3,8/10,3,8/10,3,8/10,3
+livecodebench-arc190_a,livecodebench,hard,stdin_io,A_true_pass,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4
+livecodebench-3784,livecodebench,hard,functional_io,D_true_fail,3/10,2,10/10,4,10/10,4,10/10,4,9/10,3,9/10,3,9/10,3,5/10,3,10/10,4,10/10,4,9/10,3,9/10,3,9/10,3
+livecodebench-3770,livecodebench,hard,functional_io,A_true_pass,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4,10/10,4

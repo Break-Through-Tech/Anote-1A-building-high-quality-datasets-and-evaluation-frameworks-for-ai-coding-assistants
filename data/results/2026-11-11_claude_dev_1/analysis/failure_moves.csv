@@ -1,0 +1,5 @@
+arm,attempt_0,attempt_3,tasks
+control,wrong_answer,syntax_error,1
+bare_retry,wrong_answer,wrong_answer,1
+reflect_fix,wrong_answer,wrong_answer,1
+critic,wrong_answer,wrong_answer,1

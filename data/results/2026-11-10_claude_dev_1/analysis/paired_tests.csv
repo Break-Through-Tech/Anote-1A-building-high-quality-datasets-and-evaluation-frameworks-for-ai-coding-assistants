@@ -1,0 +1,43 @@
+family,comparison,attempt,n,first_passes,second_passes,only_first_passes,only_second_passes,both_pass,both_fail,p_exact_mcnemar,p_holm,significant
+exploratory,bare_retry vs control,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,reflect_fix vs control,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,critic vs control,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,bare_retry vs reflect_fix,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,bare_retry vs critic,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,reflect_fix vs critic,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,bare_retry vs control,2,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,reflect_fix vs control,2,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,critic vs control,2,10,7,6,1,0,6,3,1.0,1.0,False
+exploratory,bare_retry vs reflect_fix,2,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,bare_retry vs critic,2,10,6,7,0,1,6,3,1.0,1.0,False
+exploratory,reflect_fix vs critic,2,10,6,7,0,1,6,3,1.0,1.0,False
+feedback_vs_control,bare_retry vs control,3,10,6,6,0,0,6,4,1.0,1.0,False
+feedback_vs_control,reflect_fix vs control,3,10,6,6,0,0,6,4,1.0,1.0,False
+feedback_vs_control,critic vs control,3,10,7,6,1,0,6,3,1.0,1.0,False
+exploratory,bare_retry vs reflect_fix,3,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,bare_retry vs critic,3,10,6,7,0,1,6,3,1.0,1.0,False
+exploratory,reflect_fix vs critic,3,10,6,7,0,1,6,3,1.0,1.0,False
+exploratory,control: attempt 1 vs 0,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,control vs zero-shot,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,control: attempt 2 vs 1,2,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,control vs zero-shot,2,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,control: attempt 3 vs 2,3,10,6,6,0,0,6,4,1.0,1.0,False
+vs_zero_shot,control vs zero-shot,3,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,bare_retry: attempt 1 vs 0,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,bare_retry vs zero-shot,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,bare_retry: attempt 2 vs 1,2,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,bare_retry vs zero-shot,2,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,bare_retry: attempt 3 vs 2,3,10,6,6,0,0,6,4,1.0,1.0,False
+vs_zero_shot,bare_retry vs zero-shot,3,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,reflect_fix: attempt 1 vs 0,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,reflect_fix vs zero-shot,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,reflect_fix: attempt 2 vs 1,2,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,reflect_fix vs zero-shot,2,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,reflect_fix: attempt 3 vs 2,3,10,6,6,0,0,6,4,1.0,1.0,False
+vs_zero_shot,reflect_fix vs zero-shot,3,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,critic: attempt 1 vs 0,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,critic vs zero-shot,1,10,6,6,0,0,6,4,1.0,1.0,False
+exploratory,critic: attempt 2 vs 1,2,10,7,6,1,0,6,3,1.0,1.0,False
+exploratory,critic vs zero-shot,2,10,7,6,1,0,6,3,1.0,1.0,False
+exploratory,critic: attempt 3 vs 2,3,10,7,7,0,0,7,3,1.0,1.0,False
+vs_zero_shot,critic vs zero-shot,3,10,7,6,1,0,6,3,1.0,1.0,False

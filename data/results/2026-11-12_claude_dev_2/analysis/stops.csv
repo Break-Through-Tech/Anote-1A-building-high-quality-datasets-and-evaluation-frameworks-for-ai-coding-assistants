@@ -1,0 +1,5 @@
+arm,n,first_public_pass_at_1,first_public_pass_at_2,first_public_pass_at_3,never
+control,1,1,0,0,0
+bare_retry,1,0,0,0,1
+reflect_fix,1,0,1,0,0
+critic,1,1,0,0,0

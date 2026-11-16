@@ -27,8 +27,8 @@ Tables (CSV name -> what it holds):
                        calls and cost (this attempt and cumulative)
   curves.csv           per scope x arm x attempt: hidden pass@1 with a Wilson 95% CI, and the gain over the
                        control on the same tasks with a paired bootstrap 95% CI (tasks resampled, 2000 draws,
-                       seed 0). Scopes: all = every task whose attempt-0 call worked (summary.json's all_tasks;
-                       hidden_pass@1_incl_failed counts failed ones 0), paired = C + D (summary.json's arms),
+                       seed 0). Scopes: all = every task, failed attempt-0 calls counted 0 (summary.json's all_tasks;
+                       hidden_pass@1_excl_failed leaves them out), paired = C + D (summary.json's arms),
                        D = the repair targets only
   arm_outcomes.csv     per arm, tasks that went into the arms, at the last attempt: repairs (D now passing hidden,
                        Wilson CI), breaks (C now failing), false fixes (public pass, hidden fail; from D / from C,
@@ -51,8 +51,10 @@ Tables (CSV name -> what it holds):
                        different scales: always grouped by source
   paired_tests.csv     exact McNemar tests on per-task hidden pass/fail: every pair of arms at attempts 1-3,
                        each arm vs its previous attempt, each arm vs zero-shot at attempts 1-3, Panacea vs
-                       Claude zero-shot and vs each arm at attempt 3. Raw p values, no correction for the
-                       number of tests: with this many tests some small p values appear by chance.
+                       zero-shot and vs each arm at attempt 3. p_exact_mcnemar is raw; p_holm is Holm-adjusted
+                       within its family and significant means p_holm < 0.05. Families: feedback_vs_control
+                       (each feedback arm vs the control at the last attempt: the research question),
+                       vs_zero_shot (each arm at the last attempt), panacea, exploratory (the rest).
 
 Usage (from the repo root):
     python Optimizer/results.py data/results/<run>                     # loop run only
@@ -75,8 +77,7 @@ import pandas as pd
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from Optimizer.loop import CELLS, ZERO_SHOT, read_rows  # noqa: E402
-from Optimizer.report import mcnemar  # noqa: E402
+from Optimizer.report import CELLS, ZERO_SHOT, add_holm, paired_row, read_rows  # noqa: E402
 
 PANACEA = "panacea"
 LEVELS = [0, 1, 2, 3, 4]
@@ -276,7 +277,7 @@ def _arms(df):
     return [s for s in systems(df) if s not in (ZERO_SHOT, PANACEA)]
 
 
-SCOPES = {"all": lambda d, failed0: d[~d["task_id"].isin(failed0)],
+SCOPES = {"all": lambda d, failed0: d,
           "paired": lambda d, failed0: d[d["in_arms"]],
           "D": lambda d, failed0: d[d["in_arms"] & (d["cell"] == "D_true_fail")]}
 
@@ -295,8 +296,8 @@ def curves_table(df, n_boot=N_BOOT):
                 lo, hi = wilson(passes, n)
                 row = {"scope": scope, "arm": arm, "attempt": int(k), "n": n, "hidden_passes": passes,
                        "hidden_pass@1": round(passes / n, 3), "ci_low": lo, "ci_high": hi,
-                       "hidden_pass@1_incl_failed": (round(passes / (n + len(failed0)), 3)
-                                                     if scope == "all" else None),
+                       "hidden_pass@1_excl_failed": (round(passes / (n - len(failed0)), 3)
+                                                     if scope == "all" and n > len(failed0) else None),
                        "public_pass@1": round(g["public_score"].mean(), 3),
                        "false_passes": int(g["false_pass"].sum()),
                        "mean_hidden_test_pass_rate": round(g["hidden_test_pass_rate"].mean(), 3),
@@ -489,30 +490,21 @@ def paired_tests_table(df):
 
     arms = _arms(df)
     last = int(df["attempt"].max())
-    tests = []
+    rows = []
     for k in range(1, last + 1):
         for a, b in combinations(arms, 2):
-            tests.append(("arm vs arm", f"{a} vs {b}", k, (a, k), (b, k)))
+            a, b = (b, a) if a == "control" else (a, b)
+            family = "feedback_vs_control" if b == "control" and k == last else "exploratory"
+            rows.append(paired_row(family, f"{a} vs {b}", k, passes(a, k), passes(b, k)))
     for arm in arms:
         for k in range(1, last + 1):
-            tests.append(("attempt vs previous", f"{arm}: attempt {k} vs {k - 1}", k, (arm, k), (arm, k - 1)))
-    for arm in arms:
-        for k in range(1, last + 1):
-            tests.append(("arm vs zero-shot", f"{arm} vs zero-shot", k, (arm, k), (ZERO_SHOT, 0)))
+            rows.append(paired_row("exploratory", f"{arm}: attempt {k} vs {k - 1}", k, passes(arm, k), passes(arm, k - 1)))
+            rows.append(paired_row("vs_zero_shot" if k == last else "exploratory", f"{arm} vs zero-shot", k,
+                                   passes(arm, k), passes(ZERO_SHOT, 0)))
     if PANACEA in set(df["system"]):
-        tests.append(("panacea", "panacea vs claude zero-shot", 0, (PANACEA, 0), (ZERO_SHOT, 0)))
-        for arm in arms:
-            tests.append(("panacea", f"panacea vs {arm}", last, (PANACEA, 0), (arm, last)))
-    rows = []
-    for kind, label, k, x, y in tests:
-        a, b = passes(*x), passes(*y)
-        first_only, second_only, p = mcnemar(a, b)
-        rows.append({"kind": kind, "comparison": label, "attempt": k, "n": len(a),
-                     "first_passes": sum(a.values()), "second_passes": sum(b.values()),
-                     "only_first_passes": first_only, "only_second_passes": second_only,
-                     "both_pass": sum(a[t] and b[t] for t in a), "both_fail": sum(not a[t] and not b[t] for t in a),
-                     "p_exact_mcnemar": round(p, 4)})
-    return pd.DataFrame(rows)
+        rows.append(paired_row(PANACEA, "panacea vs zero-shot", 0, passes(PANACEA, 0), passes(ZERO_SHOT, 0)))
+        rows += [paired_row(PANACEA, f"panacea vs {arm}", last, passes(PANACEA, 0), passes(arm, last)) for arm in arms]
+    return pd.DataFrame(add_holm(rows))
 
 
 def tasks_table(df):

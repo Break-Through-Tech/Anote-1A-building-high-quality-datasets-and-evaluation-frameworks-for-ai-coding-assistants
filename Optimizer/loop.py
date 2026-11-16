@@ -13,6 +13,14 @@ Evaluator-Optimizer loop v1 (Milestone #2). For every task:
                    call 2: the generator fixes the code using the diagnosis
   Every retry shows only that arm's LATEST attempt (retry_prompts.py).
 
+Answers that hit max_tokens (2026-11-11; attempt 0 is never changed):
+  - every arm: a cut-off retry answer with no complete code block gets one follow-up call ("finalize") that
+    shows the model its unfinished answer and asks only for the final code, which is what gets scored
+    (finalized = true; draft_output keeps the cut-off answer). A cut-off answer that already holds a
+    complete code block is scored as it is, with no extra call (2026-11-12)
+  - reflect_fix and critic: when the arm's previous answer hit max_tokens, the test feedback says so
+    (told_cut_off = true). control and bare_retry are never told: does telling the model help?
+
 Copy-forward rule (v1): once an arm's code passes its public tests, its later attempts copy that
 attempt with no API call (carried_forward = true, 0 calls), so every arm has attempts 1-3.
 
@@ -35,7 +43,7 @@ Usage (from the repo root):
     python Optimizer/loop.py claude --split dev                   # dev pilot: 10 pool tasks not in eval
     python Optimizer/loop.py claude --split dev --resume          # continue after a stop
     python Optimizer/loop.py claude --split test --ids <list>     # the test run, once prompts are frozen
-    python Optimizer/loop.py --summarize data/results/<run>       # rebuild summary.json only
+    python Optimizer/loop.py --summarize data/results/<run>       # rebuild summary.json and report.md
 """
 
 import argparse
@@ -47,7 +55,6 @@ import random
 import subprocess
 import sys
 import time
-from collections import defaultdict
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -65,17 +72,17 @@ from AI_models.providers import PROVIDERS, AdapterError
 from AI_models import retry_prompts as rp
 from AI_models import budget_tracker as bt
 from Baseline.baseline import read_task_list, select_ids
+from Optimizer.report import ZERO_SHOT, read_rows, write_report
 
 RESULTS_DIR = REPO_ROOT / "data" / "results"
 RETRIES = 3
-ZERO_SHOT = "zero_shot"
 POOL_PATH = REPO_ROOT / "data" / "unified" / "unified_pool.jsonl"
 FULL_PRIVATE_PATH = REPO_ROOT / "data" / "code_generation" / "code_generation_private_tests.jsonl"
 DEV_SEED = 0
 DEV_LAYOUT = {("mbpp", "medium", "assert_list"): 1, ("mbpp", "hard", "assert_list"): 2,
               ("livecodebench", "easy", "stdin_io"): 1, ("livecodebench", "easy", "functional_io"): 1,
-              ("livecodebench", "medium", "stdin_io"): 1, ("livecodebench", "medium", "functional_io"): 1,
-              ("livecodebench", "hard", "stdin_io"): 2, ("livecodebench", "hard", "functional_io"): 1}
+              ("livecodebench", "hard", "stdin_io"): 3, ("livecodebench", "hard", "functional_io"): 2}
+# 2026-11-11: the 2 medium LiveCodeBench tasks became hard ones, so retries have more real failures to work on.
 
 
 def dev_items():
@@ -170,7 +177,7 @@ def score(item, text):
 
 
 def make_row(item, arm, attempt, prompt, output, public, hidden, usage, critique=None, error=None,
-             prev_row=None):
+             prev_row=None, draft=None, told_cut_off=False):
     failed = error is not None
     hid_score = 0.0 if failed else hidden["score"]
     hid_rate = 0.0 if failed else hidden["test_pass_rate"]
@@ -194,25 +201,43 @@ def make_row(item, arm, attempt, prompt, output, public, hidden, usage, critique
         "critique_has_code": None if critique is None else ("```" in critique or "def " in critique),
         "failed_run": failed, "error": error or (hidden["error"] if hidden["error"] else None),
         **usage,
-        "prompt": prompt, "critique": critique, "output": output,
+        # finalized: the answer hit max_tokens with no complete code block and a follow-up call gave the final
+        # code (output); draft_output is the cut-off answer. told_cut_off: the prompt said the previous answer
+        # ran out of space.
+        "finalized": draft is not None, "told_cut_off": told_cut_off,
+        "prompt": prompt, "critique": critique, "output": output, "draft_output": draft,
     }
 
 
 def carry_forward(prev_row, attempt):
     return {**prev_row, "attempt": attempt, "regression": False, "carried_forward": True,
-            **{k: 0 for k in USAGE_KEYS}, "prompt": None, "critique": None}
+            **{k: 0 for k in USAGE_KEYS}, "prompt": None, "critique": None, "draft_output": None}
+
+
+def hit_limit(row):
+    """The answer reached max_tokens (the row keeps that stop_reason even after a finalize call)."""
+    return row.get("stop_reason") == "max_tokens"
+
+
+def has_complete_code(text):
+    """The answer holds a finished Python code block, which is what extract_code() scores."""
+    return any(closed and tag in _PYTHON_TAGS for tag, _, closed in _fenced_blocks(text or ""))
 
 
 # =====================================================================
 # ONE TASK
 # =====================================================================
-def run_task(p, client, item, arms, retries):
-    """Returns {attempt: [rows]} for one task."""
+def run_task(p, client, item, arms, retries, row0=None):
+    """Returns {attempt: [rows]} for one task. With row0 (another run's attempt 0), no new attempt-0 call."""
     tid = item["id"]
     prompt0 = build_prompt(item, "raw")
-    text0, err0, use0 = ask(p, client, item, prompt0, rp.GENERATOR_SYSTEM, tid, ZERO_SHOT, 0, "generator")
-    pub0, hid0 = score(item, text0)
-    row0 = make_row(item, ZERO_SHOT, 0, prompt0, text0, pub0, hid0, use0, error=err0)
+    if row0 is None:
+        text0, err0, use0 = ask(p, client, item, prompt0, rp.GENERATOR_SYSTEM, tid, ZERO_SHOT, 0, "generator")
+        pub0, hid0 = score(item, text0)
+        row0 = make_row(item, ZERO_SHOT, 0, prompt0, text0, pub0, hid0, use0, error=err0)
+    else:
+        err0 = row0["error"] if row0["failed_run"] else None
+        pub0, _ = score(item, row0["output"])  # full public details for the feedback; the row keeps its scores
     out = {0: [row0]}
     status = f"public={row0['public_score']} hidden={row0['hidden_score']}"
     print(f"{tid}: attempt 0 {status}" + (" (failed run)" if err0 else ""), file=sys.stderr)
@@ -226,27 +251,37 @@ def run_task(p, client, item, arms, retries):
                 out.setdefault(k, []).append(carry_forward(prev_row, k))
                 continue
             prev_code = extract_code(prev_row["output"], item.get("entry_point"))
-            usage, critique, error = {}, None, None
+            usage, critique, error, draft = {}, None, None, None
+            told = arm in ("reflect_fix", "critic") and hit_limit(prev_row)
+            note = rp.CUT_OFF_NOTE if told else ""
             if arm == "control":
                 prompt = prompt0
             elif arm == "bare_retry":
                 prompt = rp.bare_retry(item["prompt"], prev_code)
             elif arm == "reflect_fix":
-                prompt = rp.reflect_fix(item["prompt"], prev_code, format_feedback(prev_public))
+                prompt = rp.reflect_fix(item["prompt"], prev_code, format_feedback(prev_public) + note)
             elif arm == "critic":
                 fb = format_feedback(prev_public)
                 critique, error, usage = ask(p, client, item, rp.critic_review(item["prompt"], prev_code, fb),
                                              rp.CRITIC_SYSTEM, tid, arm, k, "critic")
-                prompt = rp.critic_fix(item["prompt"], prev_code, fb, critique)
+                prompt = rp.critic_fix(item["prompt"], prev_code, fb + note, critique)  # the reviewer isn't told
             else:
                 raise ValueError(arm)
             if error is None:
-                text, error, u = ask(p, client, item, prompt, rp.GENERATOR_SYSTEM, tid, arm, k, "generator")
+                system = rp.CONTROL_SYSTEM if arm == "control" else rp.GENERATOR_SYSTEM
+                text, error, u = ask(p, client, item, prompt, system, tid, arm, k, "generator")
                 usage = {**_add_usage(usage, u), "stop_reason": u["stop_reason"]}
+                # every arm: a cut-off answer with no complete code block gets one follow-up for the final code
+                if error is None and u["stop_reason"] == "max_tokens" and not has_complete_code(text):
+                    final, ferr, fu = ask(p, client, item, rp.finalize(item["prompt"], text), system, tid, arm, k,
+                                          "finalize")
+                    usage = {**_add_usage(usage, fu), "stop_reason": "max_tokens"}
+                    if ferr is None and final.strip():  # if the follow-up fails, the cut-off answer is scored
+                        draft, text = text, final
             else:
                 text = ""
             public, hidden = score(item, text)
-            row = make_row(item, arm, k, prompt, text, public, hidden, usage, critique, error, prev_row)
+            row = make_row(item, arm, k, prompt, text, public, hidden, usage, critique, error, prev_row, draft, told)
             out.setdefault(k, []).append(row)
             print(f"    {arm:<11} attempt {k} public={row['public_score']} hidden={row['hidden_score']} "
                   f"({row['hidden_tests']})" + (" (failed run)" if error else ""), file=sys.stderr)
@@ -259,14 +294,6 @@ def run_task(p, client, item, arms, retries):
 # =====================================================================
 # FILES
 # =====================================================================
-def read_rows(run_dir: Path, attempt: int) -> list:
-    path = run_dir / f"attempt_{attempt}.jsonl"
-    if not path.exists():
-        return []
-    with open(path) as f:
-        return [json.loads(line) for line in f if line.strip()]
-
-
 def append_task(run_dir: Path, rows_by_attempt: dict):
     for k, rows in sorted(rows_by_attempt.items()):
         with open(run_dir / f"attempt_{k}.jsonl", "a") as f:
@@ -279,204 +306,11 @@ def git_commit():
     return r.stdout.strip() or None
 
 
-# =====================================================================
-# SUMMARY (the charts are the "Results views" task; Optimizer/report.py adds Panacea beside it)
-#
-# Attempt 0 puts every task (that didn't fail its API call) in one of four cells:
-#   A true_pass         public pass, hidden pass   -> done; same result in every arm
-#   B false_pass        public pass, hidden fail   -> done; looks right but isn't, and no arm can see it
-#   C hidden_only_pass  public fail, hidden pass   -> goes into the arms; can only stay or break
-#   D true_fail         public fail, hidden fail   -> goes into the arms; the real repair targets
-# Two views of each arm:
-#   all_tasks   hidden pass@1 over every task at attempts 0-3 (A and B keep their attempt-0 result).
-#               This is the number that goes beside zero-shot and Panacea.
-#   paired      only the tasks that went into the arms (C + D): the self-correction view.
-#               repairs / repair_rate are over D, breaks over C.
-# =====================================================================
-CELLS = {(True, True): "A_true_pass", (True, False): "B_false_pass",
-         (False, True): "C_hidden_only_pass", (False, False): "D_true_fail"}
-
-
-def cell_of(row):
-    return CELLS[(row["public_score"] == 1.0, row["hidden_score"] == 1.0)]
-
-
-def _mean(xs):
-    return round(sum(xs) / len(xs), 3) if xs else None
-
-
-def _usage(rows):
-    return {"calls": sum(r["calls"] for r in rows), "input_tokens": sum(r["input_tokens"] for r in rows),
-            "output_tokens": sum(r["output_tokens"] for r in rows),
-            "tokens_estimated": sum(r["tokens_estimated"] for r in rows),
-            "cost_usd": round(sum(r["cost_usd"] for r in rows), 4)}
-
-
-def summarize_run(run_dir: Path) -> dict:
-    meta = json.loads((run_dir / "run_meta.json").read_text())
-    retries, arms = meta["retries"], meta["arms"]
-    a0 = read_rows(run_dir, 0)
-    a0_by_id = {r["task_id"]: r for r in a0}
-    by_key = {(r["task_id"], r["arm"], r["attempt"]): r for k in range(1, retries + 1) for r in read_rows(run_dir, k)}
-
-    ok0 = [r for r in a0 if not r["failed_run"]]
-    failed0 = [r["task_id"] for r in a0 if r["failed_run"]]
-    entered = [r for r in ok0 if r["public_score"] != 1.0]  # C + D: the tasks that went into the arms
-    # keep only tasks with every arm complete (rows are written per finished task, but be safe)
-    incomplete = [r["task_id"] for r in entered if not all((r["task_id"], a, retries) in by_key for a in arms)]
-    paired = [r["task_id"] for r in entered if r["task_id"] not in incomplete]
-    scored = [r["task_id"] for r in ok0 if r["task_id"] not in incomplete]  # A + B + paired
-
-    cells = defaultdict(list)
-    for r in ok0:
-        cells[cell_of(r)].append(r["task_id"])
-
-    def row_at(tid, arm, k):
-        """The task's row in this arm at attempt k: attempt 0 for A/B tasks and at k = 0."""
-        r0 = a0_by_id[tid]
-        return r0 if k == 0 or r0["public_score"] == 1.0 else by_key[(tid, arm, k)]
-
-    def chain(tid, arm):
-        return [row_at(tid, arm, k) for k in range(retries + 1)]
-
-    def paired_stats(task_ids, arm):
-        chains = [chain(t, arm) for t in task_ids]
-        rows = [r for c in chains for r in c[1:]]
-        targets = [c for c in chains if c[0]["hidden_score"] == 0.0]  # D
-        keepers = [c for c in chains if c[0]["hidden_score"] == 1.0]  # C
-        repairs = sum(c[-1]["hidden_score"] == 1.0 for c in targets)
-        use = _usage(rows)
-        return {
-            "n": len(chains), "n_D_repair_targets": len(targets), "n_C_hidden_only_pass": len(keepers),
-            "hidden_pass@1_by_attempt": [_mean([c[k]["hidden_score"] for c in chains]) for k in range(retries + 1)],
-            "public_pass@1_by_attempt": [_mean([c[k]["public_score"] for c in chains]) for k in range(retries + 1)],
-            "repairs": repairs,
-            "repair_rate": round(repairs / len(targets), 3) if targets else None,
-            "breaks": sum(c[-1]["hidden_score"] == 0.0 for c in keepers),
-            "false_fixes": sum(c[-1]["false_pass"] for c in chains),
-            "regressions": sum(bool(r["regression"]) for r in rows),
-            "failed_runs": sum(r["failed_run"] for r in rows),
-            **use,
-            "cost_per_repair_usd": round(use["cost_usd"] / repairs, 4) if repairs else None,
-            "calls_per_repair": round(use["calls"] / repairs, 2) if repairs else None,
-        }
-
-    def all_tasks_stats(task_ids, arm):
-        """Every task, attempts 0-3. failed attempt-0 runs are left out here and counted 0 in *_incl_failed."""
-        n_incl = len(task_ids) + len(failed0)
-        by_k = [[row_at(t, arm, k) for t in task_ids] for k in range(retries + 1)]
-        hidden = [sum(r["hidden_score"] for r in rows) for rows in by_k]
-        return {
-            "n": len(task_ids),
-            "hidden_pass@1_by_attempt": [_mean([r["hidden_score"] for r in rows]) for rows in by_k],
-            "hidden_pass@1_incl_failed_by_attempt": [round(h / n_incl, 3) if n_incl else None for h in hidden],
-            "public_pass@1_by_attempt": [_mean([r["public_score"] for r in rows]) for rows in by_k],
-            "false_passes_by_attempt": [sum(r["false_pass"] for r in rows) for rows in by_k],
-            # what the whole pipeline cost: attempt 0 on every task + this arm's retries
-            "cost_usd": round(zero_shot_use["cost_usd"] + per_arm[arm]["cost_usd"], 4),
-            "calls": zero_shot_use["calls"] + per_arm[arm]["calls"],
-        }
-
-    zero_shot_use = _usage(a0)
-    per_arm = {a: paired_stats(paired, a) for a in arms}
-    if "control" in per_arm:
-        ctrl = per_arm["control"]["hidden_pass@1_by_attempt"]
-        for a in arms:
-            mine = per_arm[a]["hidden_pass@1_by_attempt"]
-            per_arm[a]["gain_over_control_by_attempt"] = [
-                None if m is None or c is None else round(m - c, 3) for m, c in zip(mine, ctrl)]
-    all_tasks = {a: all_tasks_stats(scored, a) for a in arms}
-
-    def groups(ids, key):
-        out = defaultdict(list)
-        for t in ids:
-            out[key(a0_by_id[t])].append(t)
-        return dict(sorted(out.items()))
-
-    # MBPP and LiveCodeBench difficulty are different scales: always grouped by source too
-    src_diff = lambda r: f"{r['source']}/{r['difficulty']}"
-    ran = [r for r in a0 + list(by_key.values()) if r["calls"] and not r["carried_forward"]]
-    where = lambda r: f"{r['task_id']}/{r['arm']}/{r['attempt']}"
-    diagnostics = {
-        "truncated": [where(r) for r in ran if r.get("stop_reason") == "max_tokens"],
-        "no_python_block": [where(r) for r in ran if not r["failed_run"] and r.get("n_python_blocks") == 0],
-        "several_python_blocks": [where(r) for r in ran if (r.get("n_python_blocks") or 0) > 1],
-        "critiques_with_code": [where(r) for r in ran if r.get("critique_has_code")],
-        "tokens_per_call": {a: {"input": round(sum(r["input_tokens"] for r in g) / sum(r["calls"] for r in g)),
-                                "output": round(sum(r["output_tokens"] for r in g) / sum(r["calls"] for r in g))}
-                            for a in [ZERO_SHOT] + arms if (g := [r for r in ran if r["arm"] == a])},
-    }
-    summary = {
-        "scoring_version": meta["scoring_version"], "model": meta["model"], "n_tasks": len(a0),
-        "attempt_0": {
-            "failed_runs": len(failed0),
-            "hidden_pass@1": _mean([r["hidden_score"] for r in ok0]),
-            "hidden_pass@1_incl_failed": _mean([r["hidden_score"] for r in a0]),
-            "public_pass@1": _mean([r["public_score"] for r in ok0]),
-            "false_passes": len(cells["B_false_pass"]),
-            "went_into_arms": len(entered),
-            "cells": {c: len(cells[c]) for c in CELLS.values()},
-            "cell_ids": {c: cells[c] for c in CELLS.values()},
-            **zero_shot_use,
-        },
-        "all_tasks": all_tasks,
-        "paired_task_ids": paired,
-        "incomplete_task_ids": incomplete,
-        "diagnostics": diagnostics,
-        "arms": per_arm,
-        "all_tasks_by_source_difficulty": {
-            g: {"n": len(t), "cells": {c: sum(cell_of(a0_by_id[x]) == c for x in t) for c in CELLS.values()},
-                "zero_shot": _mean([a0_by_id[x]["hidden_score"] for x in t]),
-                **{a: _mean([row_at(x, a, retries)["hidden_score"] for x in t]) for a in arms}}
-            for g, t in groups(scored, src_diff).items()},
-        "by_source_difficulty": {g: {"n": len(t), **{a: paired_stats(t, a)["hidden_pass@1_by_attempt"] for a in arms}}
-                                 for g, t in groups(paired, src_diff).items()},
-        "by_attempt0_failure_type": {g: {"n": len(t), **{a: paired_stats(t, a)["hidden_pass@1_by_attempt"] for a in arms}}
-                                     for g, t in groups(paired, lambda r: r["failure_type"] or "none").items()},
-        "notes": "attempt_0.cells: A true pass, B false pass (public pass, hidden fail), C hidden-only pass "
-                 "(public fail, hidden pass), D true fail. all_tasks: hidden pass@1 over every task, A and B keeping "
-                 "their attempt-0 result; *_incl_failed counts failed attempt-0 API calls as 0. arms: only the "
-                 "tasks that went into the arms (C + D); repair_rate is over D, breaks over C. regression = hidden "
-                 "test pass rate went down from the arm's previous attempt. Costs are from the API's token counts "
-                 "(tokens_estimated = calls whose counts were estimated).",
-    }
-    (run_dir / "summary.json").write_text(json.dumps(summary, indent=2))
-    return summary
-
-
-def print_summary(s: dict):
-    a = s["attempt_0"]
-    c = a["cells"]
-    print(f"\n{s['n_tasks']} tasks, {a['failed_runs']} failed attempt-0 runs. Attempt 0: hidden pass@1 "
-          f"{a['hidden_pass@1']}, public {a['public_pass@1']}.")
-    print(f"  A true pass {c['A_true_pass']} | B false pass {c['B_false_pass']} | "
-          f"C hidden-only pass {c['C_hidden_only_pass']} | D true fail {c['D_true_fail']} "
-          f"-> {a['went_into_arms']} went into the arms")
-    d = s.get("diagnostics")
-    if d:
-        print(f"  diagnostics: {len(d['truncated'])} truncated, {len(d['no_python_block'])} without a code block, "
-              f"{len(d['several_python_blocks'])} with several, {len(d['critiques_with_code'])} critiques with code; "
-              f"tokens per call {d['tokens_per_call']}")
-    if not s["all_tasks"]:
-        return
-    print("\nAll tasks, hidden pass@1 at attempts 0-3 (A and B keep attempt 0):")
-    print("| arm | a0 | a1 | a2 | a3 | false passes (a3) | calls | $ |")
-    print("|---|---|---|---|---|---|---|---|")
-    for arm, st in s["all_tasks"].items():
-        print(f"| {arm} | " + " | ".join(str(x) for x in st["hidden_pass@1_by_attempt"])
-              + f" | {st['false_passes_by_attempt'][-1]} | {st['calls']} | {st['cost_usd']} |")
-    if not s["paired_task_ids"]:
-        return
-    print(f"\nOnly the {len(s['paired_task_ids'])} tasks that went into the arms (C + D):")
-    print("| arm | a0 | a1 | a2 | a3 | gain vs control (a3) | repairs (of D) | breaks (of C) | false fixes "
-          "| regressions | calls | $ |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|")
-    for arm, st in s["arms"].items():
-        h = st["hidden_pass@1_by_attempt"]
-        g = (st.get("gain_over_control_by_attempt") or [None])[-1]
-        print(f"| {arm} | " + " | ".join(str(x) for x in h) + f" | {g} | {st['repairs']}/{st['n_D_repair_targets']} | "
-              f"{st['breaks']}/{st['n_C_hidden_only_pass']} | {st['false_fixes']} | {st['regressions']} | "
-              f"{st['calls']} | {st['cost_usd']} |")
+def git_dirty():
+    """Uncommitted changes outside the run's own outputs (the usage log and data/results/)."""
+    r = subprocess.run(["git", "-C", str(REPO_ROOT), "status", "--porcelain", "--", ".",
+                        ":!runs/usage_log.csv", ":!data/results"], capture_output=True, text=True)
+    return bool(r.stdout.strip()) if r.returncode == 0 else None
 
 
 # =====================================================================
@@ -491,14 +325,22 @@ def main():
     ap.add_argument("--ids", help="task list in data/unified/task_lists/ (e.g. pilot.txt)")
     ap.add_argument("--arms", nargs="+", choices=list(rp.ARMS), default=list(rp.ARMS))
     ap.add_argument("--retries", type=int, default=RETRIES)
-    ap.add_argument("--name", help="run folder name (default <date>_<provider>_<ids>)")
+    ap.add_argument("--name", help="run folder name (default <date>_<provider>_<split>[_<ids>]_<run number>)")
     ap.add_argument("--out", default=str(RESULTS_DIR), help="folder that holds the run folders (default data/results)")
     ap.add_argument("--resume", action="store_true", help="continue a run, skipping tasks already in attempt_0.jsonl")
     ap.add_argument("--summarize", metavar="RUN_DIR", help="only rebuild summary.json for an existing run")
+    ap.add_argument("--attempt0-from", metavar="RUN_DIR",
+                    help="reuse that run's attempt-0 answers (no new calls), so both runs retry the same tasks "
+                         "from the same code and differ only in the retries")
+    ap.add_argument("--stop-at", type=float, metavar="USD",
+                    help=f"stop new calls once runs/usage_log.csv totals this much (can only lower the "
+                         f"${bt.STOP_AT_USD:.0f} limit); pass the same value to several runs to cap them together")
     args = ap.parse_args()
+    if args.stop_at is not None:
+        bt.STOP_AT_USD = min(args.stop_at, bt.STOP_AT_USD)
 
     if args.summarize:
-        print_summary(summarize_run(Path(args.summarize)))
+        write_report(Path(args.summarize))
         return
     if not args.provider or not args.split:
         ap.error("provider and --split are required")
@@ -508,7 +350,13 @@ def main():
     p = MOCK if args.provider == "mock" else PROVIDERS[args.provider]
     model = p["config"]["model"]
     stem = args.split + (f"_{Path(args.ids).stem}" if args.ids else "")
-    name = args.name or f"{datetime.date.today().isoformat()}_{args.provider}_{stem}"
+    name = args.name
+    if not name:  # <date>_<provider>_<stem>_<n>: n counts that day's runs; --resume continues the latest
+        base = f"{datetime.date.today().isoformat()}_{args.provider}_{stem}"
+        nums = [int(d.name.rsplit("_", 1)[1]) for d in Path(args.out).resolve().glob(f"{base}_*")
+                if d.name.rsplit("_", 1)[1].isdigit()]
+        n = max(nums, default=0) + (0 if args.resume and nums else 1)
+        name = f"{base}_{n}"
     run_dir = Path(args.out).resolve() / name
 
     if args.provider == "mock":  # keep mock rows out of the team's real budget log
@@ -519,17 +367,37 @@ def main():
     if p["api_key_env"] and not key:
         sys.exit(f"{p['api_key_env']} not set. Copy .env.example to .env and fill it in.")
 
+    if args.provider != "mock":  # scored code runs in this interpreter; a missing module scores 0 for the wrong reason
+        r = subprocess.run([sys.executable, "-I", "-c", "import numpy, sortedcontainers"], capture_output=True)
+        if r.returncode:
+            sys.exit(f"{sys.executable} can't import numpy or sortedcontainers, which answers use. "
+                     "Install requirements.txt in this environment first.")
     if args.provider != "mock" and args.split == "test" and rp.fingerprint() != rp.FROZEN_FINGERPRINT:
         sys.exit("AI_models/retry_prompts.py changed since the prompts were frozen "
                  f"({rp.FROZEN_DATE}). Changing them is a team decision: see that file's docstring.")
+    if args.provider != "mock" and args.split == "test" and git_dirty() is not False:
+        sys.exit("Uncommitted changes (git status): commit them first, so run_meta.json's git_commit "
+                 "is the code that ran. The usage log and data/results/ are not counted.")
     items = dev_items() if args.split == "dev" else select_ids(load_items(), read_task_list(args.ids))
     meta = {"scoring_version": SCORING_VERSION, "split": args.split, "provider": args.provider, "model": model,
             "max_tokens": p["config"].get("max_tokens"), "temperature": p["config"].get("temperature"),
             "ids_file": args.ids, "task_ids": [it["id"] for it in items], "arms": args.arms,
             "retries": args.retries, "rule": "copy-forward after a public pass",
             "retry_prompts_fingerprint": rp.fingerprint(),
-            "git_commit": git_commit(), "usage_log": str(bt.LOG_PATH),
-            "started": datetime.datetime.now().isoformat(timespec="seconds"), "finished": None}
+            "git_commit": git_commit(), "git_dirty": git_dirty(), "usage_log": str(bt.LOG_PATH),
+            "attempt0_from": None, "started": datetime.datetime.now().isoformat(timespec="seconds"), "finished": None}
+    reused = {}
+    if args.attempt0_from:
+        src = Path(args.attempt0_from).resolve()
+        src_meta = json.loads((src / "run_meta.json").read_text())
+        for k in ("scoring_version", "split", "model", "max_tokens", "temperature", "task_ids"):
+            if src_meta.get(k) != meta[k]:
+                sys.exit(f"Can't reuse attempt 0 from {src}: {k} differs ({src_meta.get(k)!r} vs {meta[k]!r}).")
+        reused = {r["task_id"]: r for r in read_rows(src, 0)}
+        missing = [i for i in meta["task_ids"] if i not in reused]
+        if missing:
+            sys.exit(f"{src} has no attempt 0 for {', '.join(missing)}.")
+        meta["attempt0_from"] = src.name
 
     meta_path = run_dir / "run_meta.json"
     done = set()
@@ -538,7 +406,7 @@ def main():
             sys.exit(f"{run_dir} already has results. Use --resume to continue it, or --name for a new run.")
         old = json.loads(meta_path.read_text())
         for k in ("scoring_version", "split", "provider", "model", "max_tokens", "temperature", "task_ids", "arms", "retries",
-                  "retry_prompts_fingerprint"):
+                  "retry_prompts_fingerprint", "attempt0_from"):
             if old.get(k) != meta[k]:
                 sys.exit(f"Can't resume {run_dir}: {k} differs ({old.get(k)!r} vs {meta[k]!r}).")
         meta = {**old, "finished": None}
@@ -553,7 +421,7 @@ def main():
     stopped = None
     try:
         for it in todo:
-            append_task(run_dir, run_task(p, client, it, args.arms, args.retries))
+            append_task(run_dir, run_task(p, client, it, args.arms, args.retries, reused.get(it["id"])))
     except bt.BudgetExceeded as e:
         stopped = str(e)
         print(f"\nStopped: {e}\nThe unfinished task was not written; rerun with --resume after checking.",
@@ -562,7 +430,7 @@ def main():
         meta["finished"] = datetime.datetime.now().isoformat(timespec="seconds")
         meta_path.write_text(json.dumps(meta, indent=2))
 
-    print_summary(summarize_run(run_dir))
+    write_report(run_dir)
     print(f"\nResults: {run_dir}/  (usage log: {bt.LOG_PATH})")
     if stopped:
         sys.exit(1)
