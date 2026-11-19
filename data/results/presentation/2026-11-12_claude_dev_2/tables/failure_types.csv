@@ -1,0 +1,16 @@
+system,failure_type,tasks_mean,tasks_min,tasks_max
+zero_shot,passed,6.0,6,6
+control,passed,7.0,7,7
+bare_retry,passed,6.0,6,6
+reflect_fix,passed,7.0,7,7
+critic,passed,6.0,6,6
+zero_shot,timeout,1.0,1,1
+control,timeout,1.0,1,1
+bare_retry,timeout,1.0,1,1
+reflect_fix,timeout,1.0,1,1
+critic,timeout,1.0,1,1
+zero_shot,wrong_answer,3.0,3,3
+control,wrong_answer,2.0,2,2
+bare_retry,wrong_answer,3.0,3,3
+reflect_fix,wrong_answer,2.0,2,2
+critic,wrong_answer,3.0,3,3
