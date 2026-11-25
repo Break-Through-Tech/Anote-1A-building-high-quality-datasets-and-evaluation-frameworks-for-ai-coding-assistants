@@ -1,0 +1,6 @@
+system,attempt,n,hidden_pass@1,public_pass@1,false_passes,failed_runs,pipeline_calls,pipeline_cost_usd,gain_vs_control_all,gain_vs_control_paired,paired_hidden_pass@1,n_paired,n_D,n_C,repairs,breaks,false_fixes,retry_cost_usd,cost_per_repair_usd,calls_per_repair,significant_vs_control,repeat
+zero_shot,0,10,0.6,0.9,3,0,10,0.274,,,,,,,,,,,,,,1
+control,3,10,0.7,1.0,3,0,11,0.2959,0.0,0.0,1.0,1.0,1.0,0.0,1.0,0.0,0.0,0.0219,0.0219,1.0,,1
+bare_retry,3,10,0.6,0.9,3,0,13,0.3525,-0.1,-1.0,0.0,1.0,1.0,0.0,0.0,0.0,0.0,0.0785,,,0.0,1
+reflect_fix,3,10,0.7,1.0,3,0,12,0.3377,0.0,0.0,1.0,1.0,1.0,0.0,1.0,0.0,0.0,0.0636,0.0636,2.0,0.0,1
+critic,3,10,0.6,1.0,4,0,12,0.3137,-0.1,-1.0,0.0,1.0,1.0,0.0,0.0,0.0,1.0,0.0397,,,0.0,1

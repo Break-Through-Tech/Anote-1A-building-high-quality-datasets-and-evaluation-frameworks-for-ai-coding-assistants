@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git pull *)"
+      "Bash(git pull *)",
+      "WebFetch(domain:github.com)",
+      "Bash(awk -F, 'NR>1{s+=$11} END{printf \"total spent: $%.4f over %d calls\\\\n\", s, NR-1}' runs/usage_log.csv)",
+      "Bash(awk -F, 'NR>=181{s+=$11} END{printf \"this run: $%.4f\\\\n\", s}' runs/usage_log.csv)"
     ]
   }
 }
