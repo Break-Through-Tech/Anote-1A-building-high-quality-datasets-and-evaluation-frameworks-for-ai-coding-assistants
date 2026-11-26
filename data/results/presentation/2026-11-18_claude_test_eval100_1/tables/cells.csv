@@ -1,0 +1,2 @@
+system,A_true_pass_mean,B_false_pass_mean,C_hidden_only_pass_mean,D_true_fail_mean,failed_mean,A_true_pass_min,B_false_pass_min,C_hidden_only_pass_min,D_true_fail_min,failed_min,A_true_pass_max,B_false_pass_max,C_hidden_only_pass_max,D_true_fail_max,failed_max
+claude,77.0,5.0,0.0,18.0,0.0,77,5,0,18,0,77,5,0,18,0
