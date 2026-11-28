@@ -8,9 +8,7 @@ __pycache__/
 venv/
 
 # Run outputs (regenerate locally, don't commit)
-*_run.json
-*_run.json.tmp
-opensource_run.json
+
 
 # Large dataset files (too big for git; regenerate from the notebooks)
 code_generation_private_tests.jsonl
