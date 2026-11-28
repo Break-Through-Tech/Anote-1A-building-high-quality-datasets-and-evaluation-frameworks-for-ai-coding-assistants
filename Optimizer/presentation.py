@@ -363,7 +363,8 @@ def chart_cost(tb, R, banner, out):
         y, yl, yh = _rng(r, "hidden_pass@1")
         if _nan(x):
             continue
-        ax.errorbar(x, y, xerr=[[x - xl], [xh - x]] if R > 1 else None, yerr=[[y - yl], [yh - y]] if R > 1 else None,
+        ax.errorbar(x, y, xerr=[[max(0, x - xl)], [max(0, xh - x)]] if R > 1 else None,
+                    yerr=[[max(0, y - yl)], [max(0, yh - y)]] if R > 1 else None,
                     fmt=C.MARKERS.get(s, "o"), color=C._color(s), ms=11, capsize=3, lw=1.2,
                     markeredgecolor=C.T["surface"])
         extra = "" if _nan(r.get("cost_per_repair_usd_mean")) else f", ${r['cost_per_repair_usd_mean']:.3f}/repair"

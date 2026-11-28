@@ -2,7 +2,7 @@
 
 Every run in `data/results/`. Current scoring version: 5. Only finished `test` runs on the current scoring version are results; everything else checks the plumbing or the cost.
 
-Total spent across these runs: $18.95
+Total spent across these runs: $38.05
 
 | run | started | split | model | tasks | task_list | scoring_version | attempt0_from | calls | cost_usd | zero_shot_hidden_pass@1 | finished | reportable | why_not |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -14,3 +14,5 @@ Total spent across these runs: $18.95
 | 2026-11-12_claude_dev_1 | 2026-11-12 | dev | claude-sonnet-4-6 | 10 | - | 3 | 2026-11-11_claude_dev_1 | 29 | 1.026 | 0.800 | True | False | dev split (only test runs are results); scoring v3 (current v5) |
 | 2026-11-12_claude_dev_2 | 2026-11-12 | dev | claude-sonnet-4-6 | 10 | - | 4 | - | 18 | 0.478 | 0.600 | True | False | dev split (only test runs are results); scoring v4 (current v5) |
 | 2026-11-18_claude_test_eval100_1 | 2026-11-18 | test | claude-sonnet-4-6 | 100 | eval100.txt | 5 | - | 343 | 10.245 | 0.770 | True | True |  |
+| 2026-11-25_claude_test_eval100_1 | 2026-11-25 | test | claude-sonnet-4-6 | 100 | eval100.txt | 5 | 2026-11-18_claude_test_eval100_1 | 322 | 9.636 | 0.770 | True | True |  |
+| 2026-11-25_claude_test_eval100_2 | 2026-11-25 | test | claude-sonnet-4-6 | 100 | eval100.txt | 5 | 2026-11-18_claude_test_eval100_1 | 318 | 9.465 | 0.770 | True | True |  |
