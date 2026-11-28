@@ -58,6 +58,11 @@ def call_claude(client, item, cfg):
         )
     except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as e:
         raise SystemExit(f"Anthropic rejected the API key, so every task would fail: {e}")
+    except anthropic.BadRequestError as e:
+        if "credit balance" in str(e):
+            raise SystemExit(f"Anthropic credit balance is too low, so every task would fail. Get the key's balance "
+                             f"topped up, then rerun with --resume: {e}")
+        raise AdapterError(f"{type(e).__name__}: {e}") from e
     except anthropic.APIError as e:  # the SDK already retried temporary errors MAX_RETRIES times
         raise AdapterError(f"{type(e).__name__}: {e}") from e
     block = resp.content[0] if resp.content else None

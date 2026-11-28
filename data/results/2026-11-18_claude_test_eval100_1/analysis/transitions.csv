@@ -1,0 +1,13 @@
+arm,step,n,fixed,broke,stayed_pass,stayed_fail,level_up,level_down,level_same,first_public_pass,failed_api_calls,hidden_pass@1_after
+control,0->1,18,2,0,0,16,7,2,9,2,0,0.111
+control,1->2,18,2,0,2,14,5,3,10,2,0,0.222
+control,2->3,18,0,0,4,14,2,0,16,1,0,0.222
+bare_retry,0->1,18,3,0,0,15,9,4,5,3,0,0.167
+bare_retry,1->2,18,1,0,3,14,4,1,13,1,0,0.222
+bare_retry,2->3,18,2,0,4,12,4,3,11,2,0,0.333
+reflect_fix,0->1,18,6,0,0,12,11,1,6,8,0,0.333
+reflect_fix,1->2,18,2,0,6,10,4,2,12,2,0,0.444
+reflect_fix,2->3,18,0,0,8,10,1,1,16,0,0,0.444
+critic,0->1,18,6,0,0,12,10,1,7,7,0,0.333
+critic,1->2,18,1,0,6,11,2,0,16,1,0,0.389
+critic,2->3,18,0,0,7,11,2,2,14,0,0,0.389

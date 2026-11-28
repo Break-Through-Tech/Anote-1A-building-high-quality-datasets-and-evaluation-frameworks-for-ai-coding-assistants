@@ -1,0 +1,1147 @@
+{
+  "scoring_version": 5,
+  "model": "claude-sonnet-4-6",
+  "n_tasks": 100,
+  "attempt_0": {
+    "failed_runs": 0,
+    "hidden_pass@1": 0.77,
+    "hidden_pass@1_excl_failed": 0.77,
+    "public_pass@1": 0.82,
+    "public_pass@1_excl_failed": 0.82,
+    "false_passes": 5,
+    "went_into_arms": 18,
+    "cells": {
+      "A_true_pass": 77,
+      "B_false_pass": 5,
+      "C_hidden_only_pass": 0,
+      "D_true_fail": 18
+    },
+    "cell_ids": {
+      "A_true_pass": [
+        "mbpp-637",
+        "mbpp-720",
+        "mbpp-741",
+        "mbpp-754",
+        "mbpp-759",
+        "mbpp-808",
+        "mbpp-75",
+        "mbpp-242",
+        "mbpp-281",
+        "mbpp-286",
+        "mbpp-421",
+        "mbpp-445",
+        "livecodebench-abc387_b",
+        "livecodebench-abc387_f",
+        "livecodebench-abc387_a",
+        "livecodebench-abc387_c",
+        "livecodebench-abc388_d",
+        "livecodebench-abc388_b",
+        "livecodebench-abc388_c",
+        "livecodebench-abc388_a",
+        "livecodebench-abc388_e",
+        "livecodebench-abc389_b",
+        "livecodebench-abc389_a",
+        "livecodebench-abc389_f",
+        "livecodebench-abc389_e",
+        "livecodebench-abc390_c",
+        "livecodebench-abc391_a",
+        "livecodebench-abc391_g",
+        "livecodebench-abc391_b",
+        "livecodebench-abc392_g",
+        "livecodebench-abc392_b",
+        "livecodebench-abc392_c",
+        "livecodebench-abc393_a",
+        "livecodebench-abc393_d",
+        "livecodebench-abc393_b",
+        "livecodebench-abc394_c",
+        "livecodebench-abc394_a",
+        "livecodebench-abc395_c",
+        "livecodebench-abc395_b",
+        "livecodebench-abc396_c",
+        "livecodebench-abc396_d",
+        "livecodebench-abc397_b",
+        "livecodebench-abc398_b",
+        "livecodebench-abc398_d",
+        "livecodebench-abc398_a",
+        "livecodebench-abc399_e",
+        "livecodebench-abc399_b",
+        "livecodebench-abc400_a",
+        "livecodebench-arc193_a",
+        "livecodebench-arc194_e",
+        "livecodebench-3708",
+        "livecodebench-3677",
+        "livecodebench-3720",
+        "livecodebench-3731",
+        "livecodebench-3714",
+        "livecodebench-3737",
+        "livecodebench-3704",
+        "livecodebench-3751",
+        "livecodebench-3760",
+        "livecodebench-3779",
+        "livecodebench-3733",
+        "livecodebench-3768",
+        "livecodebench-3764",
+        "livecodebench-3786",
+        "livecodebench-3722",
+        "livecodebench-3791",
+        "livecodebench-3789",
+        "livecodebench-3750",
+        "livecodebench-3817",
+        "livecodebench-3832",
+        "livecodebench-3747",
+        "livecodebench-3723",
+        "livecodebench-3778",
+        "livecodebench-3785",
+        "livecodebench-3783",
+        "livecodebench-3799",
+        "livecodebench-3811"
+      ],
+      "B_false_pass": [
+        "mbpp-622",
+        "mbpp-781",
+        "livecodebench-abc400_g",
+        "livecodebench-arc191_d",
+        "livecodebench-3701"
+      ],
+      "C_hidden_only_pass": [],
+      "D_true_fail": [
+        "mbpp-603",
+        "mbpp-749",
+        "mbpp-773",
+        "mbpp-235",
+        "mbpp-305",
+        "mbpp-395",
+        "livecodebench-abc389_g",
+        "livecodebench-abc390_g",
+        "livecodebench-arc192_a",
+        "livecodebench-arc193_b",
+        "livecodebench-arc194_c",
+        "livecodebench-arc194_a",
+        "livecodebench-arc195_e",
+        "livecodebench-arc195_c",
+        "livecodebench-arc196_c",
+        "livecodebench-3674",
+        "livecodebench-3725",
+        "livecodebench-3776"
+      ]
+    },
+    "calls": 100,
+    "input_tokens": 42140,
+    "output_tokens": 130564,
+    "tokens_estimated": 0,
+    "cost_usd": 2.0849
+  },
+  "all_tasks": {
+    "control": {
+      "n": 100,
+      "n_excl_failed": 100,
+      "hidden_pass@1_by_attempt": [
+        0.77,
+        0.8,
+        0.83,
+        0.83
+      ],
+      "hidden_pass@1_excl_failed_by_attempt": [
+        0.77,
+        0.8,
+        0.83,
+        0.83
+      ],
+      "public_pass@1_by_attempt": [
+        0.82,
+        0.85,
+        0.88,
+        0.88
+      ],
+      "public_pass@1_excl_failed_by_attempt": [
+        0.82,
+        0.85,
+        0.88,
+        0.88
+      ],
+      "false_passes_by_attempt": [
+        5,
+        5,
+        5,
+        5
+      ],
+      "cost_usd": 4.0268,
+      "calls": 149
+    },
+    "bare_retry": {
+      "n": 100,
+      "n_excl_failed": 100,
+      "hidden_pass@1_by_attempt": [
+        0.77,
+        0.8,
+        0.85,
+        0.85
+      ],
+      "hidden_pass@1_excl_failed_by_attempt": [
+        0.77,
+        0.8,
+        0.85,
+        0.85
+      ],
+      "public_pass@1_by_attempt": [
+        0.82,
+        0.86,
+        0.91,
+        0.91
+      ],
+      "public_pass@1_excl_failed_by_attempt": [
+        0.82,
+        0.86,
+        0.91,
+        0.91
+      ],
+      "false_passes_by_attempt": [
+        5,
+        6,
+        6,
+        6
+      ],
+      "cost_usd": 3.4763,
+      "calls": 145
+    },
+    "reflect_fix": {
+      "n": 100,
+      "n_excl_failed": 100,
+      "hidden_pass@1_by_attempt": [
+        0.77,
+        0.83,
+        0.84,
+        0.84
+      ],
+      "hidden_pass@1_excl_failed_by_attempt": [
+        0.77,
+        0.83,
+        0.84,
+        0.84
+      ],
+      "public_pass@1_by_attempt": [
+        0.82,
+        0.89,
+        0.91,
+        0.92
+      ],
+      "public_pass@1_excl_failed_by_attempt": [
+        0.82,
+        0.89,
+        0.91,
+        0.92
+      ],
+      "false_passes_by_attempt": [
+        5,
+        6,
+        7,
+        8
+      ],
+      "cost_usd": 4.3582,
+      "calls": 151
+    },
+    "critic": {
+      "n": 100,
+      "n_excl_failed": 100,
+      "hidden_pass@1_by_attempt": [
+        0.77,
+        0.85,
+        0.85,
+        0.85
+      ],
+      "hidden_pass@1_excl_failed_by_attempt": [
+        0.77,
+        0.85,
+        0.85,
+        0.85
+      ],
+      "public_pass@1_by_attempt": [
+        0.82,
+        0.92,
+        0.92,
+        0.92
+      ],
+      "public_pass@1_excl_failed_by_attempt": [
+        0.82,
+        0.92,
+        0.92,
+        0.92
+      ],
+      "false_passes_by_attempt": [
+        5,
+        7,
+        7,
+        7
+      ],
+      "cost_usd": 3.8583,
+      "calls": 173
+    }
+  },
+  "paired_task_ids": [
+    "mbpp-603",
+    "mbpp-749",
+    "mbpp-773",
+    "mbpp-235",
+    "mbpp-305",
+    "mbpp-395",
+    "livecodebench-abc389_g",
+    "livecodebench-abc390_g",
+    "livecodebench-arc192_a",
+    "livecodebench-arc193_b",
+    "livecodebench-arc194_c",
+    "livecodebench-arc194_a",
+    "livecodebench-arc195_e",
+    "livecodebench-arc195_c",
+    "livecodebench-arc196_c",
+    "livecodebench-3674",
+    "livecodebench-3725",
+    "livecodebench-3776"
+  ],
+  "incomplete_task_ids": [],
+  "diagnostics": {
+    "truncated": [
+      "livecodebench-abc389_g/zero_shot/0",
+      "livecodebench-abc389_f/zero_shot/0",
+      "livecodebench-abc390_g/zero_shot/0",
+      "livecodebench-abc400_g/zero_shot/0",
+      "livecodebench-arc192_a/zero_shot/0",
+      "livecodebench-arc193_b/zero_shot/0",
+      "livecodebench-arc193_a/zero_shot/0",
+      "livecodebench-arc194_c/zero_shot/0",
+      "livecodebench-arc194_e/zero_shot/0",
+      "livecodebench-arc194_a/zero_shot/0",
+      "livecodebench-arc195_e/zero_shot/0",
+      "livecodebench-arc195_c/zero_shot/0",
+      "livecodebench-arc196_c/zero_shot/0",
+      "livecodebench-3725/zero_shot/0",
+      "livecodebench-3733/zero_shot/0",
+      "livecodebench-abc389_g/control/1",
+      "livecodebench-abc389_g/bare_retry/1",
+      "livecodebench-abc389_g/reflect_fix/1",
+      "livecodebench-abc389_g/critic/1",
+      "livecodebench-abc390_g/control/1",
+      "livecodebench-arc192_a/control/1",
+      "livecodebench-arc192_a/bare_retry/1",
+      "livecodebench-arc192_a/critic/1",
+      "livecodebench-arc193_b/control/1",
+      "livecodebench-arc193_b/bare_retry/1",
+      "livecodebench-arc193_b/reflect_fix/1",
+      "livecodebench-arc193_b/critic/1",
+      "livecodebench-arc194_a/control/1",
+      "livecodebench-arc194_a/reflect_fix/1",
+      "livecodebench-arc195_e/control/1",
+      "livecodebench-arc195_e/bare_retry/1",
+      "livecodebench-arc195_e/reflect_fix/1",
+      "livecodebench-arc195_e/critic/1",
+      "livecodebench-arc195_c/control/1",
+      "livecodebench-arc195_c/reflect_fix/1",
+      "livecodebench-arc195_c/critic/1",
+      "livecodebench-arc196_c/control/1",
+      "livecodebench-3725/control/1",
+      "livecodebench-3725/reflect_fix/1",
+      "livecodebench-3725/critic/1",
+      "livecodebench-abc389_g/control/2",
+      "livecodebench-abc389_g/reflect_fix/2",
+      "livecodebench-abc390_g/control/2",
+      "livecodebench-arc192_a/bare_retry/2",
+      "livecodebench-arc192_a/reflect_fix/2",
+      "livecodebench-arc193_b/control/2",
+      "livecodebench-arc193_b/bare_retry/2",
+      "livecodebench-arc194_a/control/2",
+      "livecodebench-arc194_a/critic/2",
+      "livecodebench-arc195_e/control/2",
+      "livecodebench-arc195_e/bare_retry/2",
+      "livecodebench-arc195_e/reflect_fix/2",
+      "livecodebench-arc195_e/critic/2",
+      "livecodebench-arc195_c/control/2",
+      "livecodebench-arc195_c/bare_retry/2",
+      "livecodebench-arc195_c/reflect_fix/2",
+      "livecodebench-arc195_c/critic/2",
+      "livecodebench-arc196_c/control/2",
+      "livecodebench-arc196_c/reflect_fix/2",
+      "livecodebench-3674/control/2",
+      "livecodebench-3725/control/2",
+      "livecodebench-3725/reflect_fix/2",
+      "livecodebench-abc389_g/control/3",
+      "livecodebench-arc193_b/control/3",
+      "livecodebench-arc193_b/reflect_fix/3",
+      "livecodebench-arc194_a/control/3",
+      "livecodebench-arc195_e/control/3",
+      "livecodebench-arc195_e/bare_retry/3",
+      "livecodebench-arc195_e/reflect_fix/3",
+      "livecodebench-arc195_e/critic/3",
+      "livecodebench-arc195_c/control/3",
+      "livecodebench-arc195_c/bare_retry/3",
+      "livecodebench-arc195_c/reflect_fix/3",
+      "livecodebench-arc195_c/critic/3",
+      "livecodebench-arc196_c/reflect_fix/3",
+      "livecodebench-3725/reflect_fix/3"
+    ],
+    "finalized": [
+      "livecodebench-abc389_g/reflect_fix/1",
+      "livecodebench-abc389_g/critic/1",
+      "livecodebench-arc193_b/bare_retry/1",
+      "livecodebench-arc194_a/reflect_fix/1",
+      "livecodebench-arc195_e/reflect_fix/1",
+      "livecodebench-arc195_e/critic/1",
+      "livecodebench-arc195_c/reflect_fix/1",
+      "livecodebench-3725/critic/1",
+      "livecodebench-abc389_g/reflect_fix/2",
+      "livecodebench-arc193_b/bare_retry/2",
+      "livecodebench-arc195_e/control/2",
+      "livecodebench-arc195_e/bare_retry/2",
+      "livecodebench-arc195_e/reflect_fix/2",
+      "livecodebench-arc195_e/critic/2",
+      "livecodebench-arc195_c/control/2",
+      "livecodebench-arc195_c/bare_retry/2",
+      "livecodebench-arc195_c/reflect_fix/2",
+      "livecodebench-arc196_c/control/2",
+      "livecodebench-arc196_c/reflect_fix/2",
+      "livecodebench-3725/reflect_fix/2",
+      "livecodebench-arc193_b/reflect_fix/3",
+      "livecodebench-arc195_e/control/3",
+      "livecodebench-arc195_e/reflect_fix/3",
+      "livecodebench-arc195_e/critic/3",
+      "livecodebench-arc195_c/reflect_fix/3",
+      "livecodebench-arc196_c/reflect_fix/3"
+    ],
+    "no_python_block": [],
+    "several_python_blocks": [
+      "mbpp-603/zero_shot/0",
+      "mbpp-622/zero_shot/0",
+      "mbpp-637/zero_shot/0",
+      "mbpp-720/zero_shot/0",
+      "mbpp-741/zero_shot/0",
+      "mbpp-749/zero_shot/0",
+      "mbpp-754/zero_shot/0",
+      "mbpp-759/zero_shot/0",
+      "mbpp-773/zero_shot/0",
+      "mbpp-781/zero_shot/0",
+      "mbpp-808/zero_shot/0",
+      "mbpp-75/zero_shot/0",
+      "mbpp-235/zero_shot/0",
+      "mbpp-242/zero_shot/0",
+      "mbpp-281/zero_shot/0",
+      "mbpp-286/zero_shot/0",
+      "mbpp-395/zero_shot/0",
+      "mbpp-421/zero_shot/0",
+      "mbpp-445/zero_shot/0",
+      "livecodebench-abc387_f/zero_shot/0",
+      "livecodebench-abc387_c/zero_shot/0",
+      "livecodebench-abc388_d/zero_shot/0",
+      "livecodebench-abc388_c/zero_shot/0",
+      "livecodebench-abc388_e/zero_shot/0",
+      "livecodebench-abc389_g/zero_shot/0",
+      "livecodebench-abc389_f/zero_shot/0",
+      "livecodebench-abc389_e/zero_shot/0",
+      "livecodebench-abc390_c/zero_shot/0",
+      "livecodebench-abc391_g/zero_shot/0",
+      "livecodebench-abc392_g/zero_shot/0",
+      "livecodebench-abc393_d/zero_shot/0",
+      "livecodebench-abc397_b/zero_shot/0",
+      "livecodebench-arc193_b/zero_shot/0",
+      "livecodebench-arc193_a/zero_shot/0",
+      "livecodebench-arc194_c/zero_shot/0",
+      "livecodebench-arc194_e/zero_shot/0",
+      "livecodebench-arc195_c/zero_shot/0",
+      "livecodebench-arc196_c/zero_shot/0",
+      "livecodebench-3674/zero_shot/0",
+      "livecodebench-3737/zero_shot/0",
+      "livecodebench-3725/zero_shot/0",
+      "livecodebench-3733/zero_shot/0",
+      "livecodebench-3786/zero_shot/0",
+      "livecodebench-3722/zero_shot/0",
+      "livecodebench-3789/zero_shot/0",
+      "livecodebench-3750/zero_shot/0",
+      "livecodebench-3701/zero_shot/0",
+      "livecodebench-3776/zero_shot/0",
+      "mbpp-773/control/1",
+      "mbpp-235/bare_retry/1",
+      "livecodebench-abc389_g/control/1",
+      "livecodebench-abc389_g/bare_retry/1",
+      "livecodebench-abc389_g/reflect_fix/1",
+      "livecodebench-abc390_g/control/1",
+      "livecodebench-arc192_a/bare_retry/1",
+      "livecodebench-arc192_a/critic/1",
+      "livecodebench-arc193_b/control/1",
+      "livecodebench-arc193_b/bare_retry/1",
+      "livecodebench-arc193_b/critic/1",
+      "livecodebench-arc194_a/bare_retry/1",
+      "livecodebench-arc194_a/reflect_fix/1",
+      "livecodebench-arc194_a/critic/1",
+      "livecodebench-arc195_e/bare_retry/1",
+      "livecodebench-arc195_c/control/1",
+      "livecodebench-arc195_c/bare_retry/1",
+      "livecodebench-arc195_c/reflect_fix/1",
+      "livecodebench-arc195_c/critic/1",
+      "livecodebench-3674/control/1",
+      "livecodebench-3674/reflect_fix/1",
+      "livecodebench-3725/control/1",
+      "livecodebench-3725/reflect_fix/1",
+      "livecodebench-3776/control/1",
+      "livecodebench-3776/bare_retry/1",
+      "livecodebench-3776/reflect_fix/1",
+      "livecodebench-3776/critic/1",
+      "mbpp-603/bare_retry/2",
+      "mbpp-773/control/2",
+      "mbpp-235/control/2",
+      "livecodebench-abc389_g/control/2",
+      "livecodebench-abc390_g/control/2",
+      "livecodebench-arc192_a/bare_retry/2",
+      "livecodebench-arc193_b/control/2",
+      "livecodebench-arc194_c/critic/2",
+      "livecodebench-arc195_e/reflect_fix/2",
+      "livecodebench-arc195_c/bare_retry/2",
+      "livecodebench-arc195_c/reflect_fix/2",
+      "livecodebench-arc195_c/critic/2",
+      "livecodebench-3674/control/2",
+      "livecodebench-3725/control/2",
+      "mbpp-749/control/3",
+      "mbpp-773/control/3",
+      "mbpp-235/control/3",
+      "mbpp-235/bare_retry/3",
+      "mbpp-235/critic/3",
+      "mbpp-305/control/3",
+      "livecodebench-abc389_g/control/3",
+      "livecodebench-arc193_b/control/3",
+      "livecodebench-arc193_b/reflect_fix/3",
+      "livecodebench-arc193_b/critic/3",
+      "livecodebench-arc194_c/reflect_fix/3",
+      "livecodebench-arc194_a/control/3",
+      "livecodebench-arc194_a/critic/3",
+      "livecodebench-arc195_e/bare_retry/3",
+      "livecodebench-arc195_c/control/3",
+      "livecodebench-arc195_c/bare_retry/3",
+      "livecodebench-arc195_c/critic/3",
+      "livecodebench-3674/control/3",
+      "livecodebench-3674/reflect_fix/3",
+      "livecodebench-3674/critic/3"
+    ],
+    "critiques_with_code": [],
+    "tokens_per_call": {
+      "zero_shot": {
+        "input": 421,
+        "output": 1306
+      },
+      "control": {
+        "input": 860,
+        "output": 2470
+      },
+      "bare_retry": {
+        "input": 1497,
+        "output": 1762
+      },
+      "reflect_fix": {
+        "input": 2496,
+        "output": 2472
+      },
+      "critic": {
+        "input": 1846,
+        "output": 1250
+      }
+    }
+  },
+  "cut_off_sensitivity": {
+    "cut_off_task_ids": [
+      "livecodebench-3674",
+      "livecodebench-3725",
+      "livecodebench-3733",
+      "livecodebench-abc389_f",
+      "livecodebench-abc389_g",
+      "livecodebench-abc390_g",
+      "livecodebench-abc400_g",
+      "livecodebench-arc192_a",
+      "livecodebench-arc193_a",
+      "livecodebench-arc193_b",
+      "livecodebench-arc194_a",
+      "livecodebench-arc194_c",
+      "livecodebench-arc194_e",
+      "livecodebench-arc195_c",
+      "livecodebench-arc195_e",
+      "livecodebench-arc196_c"
+    ],
+    "n_all_tasks": 100,
+    "n_all_tasks_no_cut_off": 84,
+    "n_paired": 18,
+    "n_paired_no_cut_off": 7,
+    "zero_shot": {
+      "answers": 100,
+      "cut_off_answers": 15,
+      "all_tasks": 0.77,
+      "all_tasks_no_cut_off": 0.869
+    },
+    "arms": {
+      "control": {
+        "answers": 45,
+        "cut_off_answers": 23,
+        "all_tasks": 0.83,
+        "all_tasks_no_cut_off": 0.893,
+        "paired": 0.333,
+        "paired_no_cut_off": 0.286
+      },
+      "bare_retry": {
+        "answers": 41,
+        "cut_off_answers": 10,
+        "all_tasks": 0.85,
+        "all_tasks_no_cut_off": 0.917,
+        "paired": 0.444,
+        "paired_no_cut_off": 0.571
+      },
+      "reflect_fix": {
+        "answers": 38,
+        "cut_off_answers": 17,
+        "all_tasks": 0.84,
+        "all_tasks_no_cut_off": 0.94,
+        "paired": 0.389,
+        "paired_no_cut_off": 0.857
+      },
+      "critic": {
+        "answers": 34,
+        "cut_off_answers": 11,
+        "all_tasks": 0.85,
+        "all_tasks_no_cut_off": 0.929,
+        "paired": 0.444,
+        "paired_no_cut_off": 0.714
+      }
+    }
+  },
+  "after_cut_off": {
+    "control": {
+      "answers": 24,
+      "told": 0,
+      "cut_off_again": 22
+    },
+    "bare_retry": {
+      "answers": 15,
+      "told": 0,
+      "cut_off_again": 9
+    },
+    "reflect_fix": {
+      "answers": 21,
+      "told": 21,
+      "cut_off_again": 14
+    },
+    "critic": {
+      "answers": 16,
+      "told": 16,
+      "cut_off_again": 10
+    }
+  },
+  "paired_tests": [
+    {
+      "family": "feedback_vs_control",
+      "comparison": "bare_retry vs control",
+      "attempt": 3,
+      "n": 100,
+      "first_passes": 85,
+      "second_passes": 83,
+      "only_first_passes": 3,
+      "only_second_passes": 1,
+      "both_pass": 82,
+      "both_fail": 14,
+      "p_exact_mcnemar": 0.625,
+      "p_holm": 1.0,
+      "significant": false
+    },
+    {
+      "family": "feedback_vs_control",
+      "comparison": "reflect_fix vs control",
+      "attempt": 3,
+      "n": 100,
+      "first_passes": 84,
+      "second_passes": 83,
+      "only_first_passes": 4,
+      "only_second_passes": 3,
+      "both_pass": 80,
+      "both_fail": 13,
+      "p_exact_mcnemar": 1.0,
+      "p_holm": 1.0,
+      "significant": false
+    },
+    {
+      "family": "feedback_vs_control",
+      "comparison": "critic vs control",
+      "attempt": 3,
+      "n": 100,
+      "first_passes": 85,
+      "second_passes": 83,
+      "only_first_passes": 3,
+      "only_second_passes": 1,
+      "both_pass": 82,
+      "both_fail": 14,
+      "p_exact_mcnemar": 0.625,
+      "p_holm": 1.0,
+      "significant": false
+    },
+    {
+      "family": "vs_zero_shot",
+      "comparison": "control vs zero-shot",
+      "attempt": 3,
+      "n": 100,
+      "first_passes": 83,
+      "second_passes": 77,
+      "only_first_passes": 6,
+      "only_second_passes": 0,
+      "both_pass": 77,
+      "both_fail": 17,
+      "p_exact_mcnemar": 0.0312,
+      "p_holm": 0.0312,
+      "significant": true
+    },
+    {
+      "family": "vs_zero_shot",
+      "comparison": "bare_retry vs zero-shot",
+      "attempt": 3,
+      "n": 100,
+      "first_passes": 85,
+      "second_passes": 77,
+      "only_first_passes": 8,
+      "only_second_passes": 0,
+      "both_pass": 77,
+      "both_fail": 15,
+      "p_exact_mcnemar": 0.0078,
+      "p_holm": 0.0312,
+      "significant": true
+    },
+    {
+      "family": "vs_zero_shot",
+      "comparison": "reflect_fix vs zero-shot",
+      "attempt": 3,
+      "n": 100,
+      "first_passes": 84,
+      "second_passes": 77,
+      "only_first_passes": 7,
+      "only_second_passes": 0,
+      "both_pass": 77,
+      "both_fail": 16,
+      "p_exact_mcnemar": 0.0156,
+      "p_holm": 0.0312,
+      "significant": true
+    },
+    {
+      "family": "vs_zero_shot",
+      "comparison": "critic vs zero-shot",
+      "attempt": 3,
+      "n": 100,
+      "first_passes": 85,
+      "second_passes": 77,
+      "only_first_passes": 8,
+      "only_second_passes": 0,
+      "both_pass": 77,
+      "both_fail": 15,
+      "p_exact_mcnemar": 0.0078,
+      "p_holm": 0.0312,
+      "significant": true
+    }
+  ],
+  "arms": {
+    "control": {
+      "n": 18,
+      "n_D_repair_targets": 18,
+      "n_C_hidden_only_pass": 0,
+      "hidden_pass@1_by_attempt": [
+        0.0,
+        0.167,
+        0.333,
+        0.333
+      ],
+      "public_pass@1_by_attempt": [
+        0.0,
+        0.167,
+        0.333,
+        0.333
+      ],
+      "repairs": 6,
+      "repair_rate": 0.333,
+      "breaks": 0,
+      "false_fixes": 0,
+      "regressions": 5,
+      "failed_runs": 0,
+      "failed_runs_by_attempt": [
+        0,
+        0,
+        0
+      ],
+      "calls": 49,
+      "input_tokens": 42120,
+      "output_tokens": 121036,
+      "tokens_estimated": 0,
+      "cost_usd": 1.9419,
+      "cost_per_repair_usd": 0.3236,
+      "calls_per_repair": 8.17,
+      "gain_over_control_by_attempt": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "bare_retry": {
+      "n": 18,
+      "n_D_repair_targets": 18,
+      "n_C_hidden_only_pass": 0,
+      "hidden_pass@1_by_attempt": [
+        0.0,
+        0.167,
+        0.444,
+        0.444
+      ],
+      "public_pass@1_by_attempt": [
+        0.0,
+        0.222,
+        0.5,
+        0.5
+      ],
+      "repairs": 8,
+      "repair_rate": 0.444,
+      "breaks": 0,
+      "false_fixes": 1,
+      "regressions": 2,
+      "failed_runs": 0,
+      "failed_runs_by_attempt": [
+        0,
+        0,
+        0
+      ],
+      "calls": 45,
+      "input_tokens": 67345,
+      "output_tokens": 79294,
+      "tokens_estimated": 0,
+      "cost_usd": 1.3914,
+      "cost_per_repair_usd": 0.1739,
+      "calls_per_repair": 5.62,
+      "gain_over_control_by_attempt": [
+        0.0,
+        0.0,
+        0.111,
+        0.111
+      ]
+    },
+    "reflect_fix": {
+      "n": 18,
+      "n_D_repair_targets": 18,
+      "n_C_hidden_only_pass": 0,
+      "hidden_pass@1_by_attempt": [
+        0.0,
+        0.333,
+        0.389,
+        0.389
+      ],
+      "public_pass@1_by_attempt": [
+        0.0,
+        0.389,
+        0.5,
+        0.556
+      ],
+      "repairs": 7,
+      "repair_rate": 0.389,
+      "breaks": 0,
+      "false_fixes": 3,
+      "regressions": 1,
+      "failed_runs": 0,
+      "failed_runs_by_attempt": [
+        0,
+        0,
+        0
+      ],
+      "calls": 51,
+      "input_tokens": 127302,
+      "output_tokens": 126094,
+      "tokens_estimated": 0,
+      "cost_usd": 2.2733,
+      "cost_per_repair_usd": 0.3248,
+      "calls_per_repair": 7.29,
+      "gain_over_control_by_attempt": [
+        0.0,
+        0.166,
+        0.056,
+        0.056
+      ]
+    },
+    "critic": {
+      "n": 18,
+      "n_D_repair_targets": 18,
+      "n_C_hidden_only_pass": 0,
+      "hidden_pass@1_by_attempt": [
+        0.0,
+        0.444,
+        0.444,
+        0.444
+      ],
+      "public_pass@1_by_attempt": [
+        0.0,
+        0.556,
+        0.556,
+        0.556
+      ],
+      "repairs": 8,
+      "repair_rate": 0.444,
+      "breaks": 0,
+      "false_fixes": 2,
+      "regressions": 5,
+      "failed_runs": 0,
+      "failed_runs_by_attempt": [
+        0,
+        0,
+        0
+      ],
+      "calls": 73,
+      "input_tokens": 134784,
+      "output_tokens": 91273,
+      "tokens_estimated": 0,
+      "cost_usd": 1.7734,
+      "cost_per_repair_usd": 0.2217,
+      "calls_per_repair": 9.12,
+      "gain_over_control_by_attempt": [
+        0.0,
+        0.277,
+        0.111,
+        0.111
+      ]
+    }
+  },
+  "all_tasks_by_source_difficulty": {
+    "livecodebench/easy": {
+      "n": 27,
+      "failed_runs": 0,
+      "cells": {
+        "A_true_pass": 27,
+        "B_false_pass": 0,
+        "C_hidden_only_pass": 0,
+        "D_true_fail": 0
+      },
+      "zero_shot": 1.0,
+      "control": 1.0,
+      "bare_retry": 1.0,
+      "reflect_fix": 1.0,
+      "critic": 1.0
+    },
+    "livecodebench/hard": {
+      "n": 26,
+      "failed_runs": 0,
+      "cells": {
+        "A_true_pass": 14,
+        "B_false_pass": 3,
+        "C_hidden_only_pass": 0,
+        "D_true_fail": 9
+      },
+      "zero_shot": 0.538,
+      "control": 0.654,
+      "bare_retry": 0.654,
+      "reflect_fix": 0.577,
+      "critic": 0.615
+    },
+    "livecodebench/medium": {
+      "n": 27,
+      "failed_runs": 0,
+      "cells": {
+        "A_true_pass": 24,
+        "B_false_pass": 0,
+        "C_hidden_only_pass": 0,
+        "D_true_fail": 3
+      },
+      "zero_shot": 0.889,
+      "control": 0.963,
+      "bare_retry": 0.963,
+      "reflect_fix": 0.926,
+      "critic": 0.963
+    },
+    "mbpp/hard": {
+      "n": 10,
+      "failed_runs": 0,
+      "cells": {
+        "A_true_pass": 4,
+        "B_false_pass": 2,
+        "C_hidden_only_pass": 0,
+        "D_true_fail": 4
+      },
+      "zero_shot": 0.4,
+      "control": 0.5,
+      "bare_retry": 0.6,
+      "reflect_fix": 0.7,
+      "critic": 0.6
+    },
+    "mbpp/medium": {
+      "n": 10,
+      "failed_runs": 0,
+      "cells": {
+        "A_true_pass": 8,
+        "B_false_pass": 0,
+        "C_hidden_only_pass": 0,
+        "D_true_fail": 2
+      },
+      "zero_shot": 0.8,
+      "control": 0.8,
+      "bare_retry": 0.9,
+      "reflect_fix": 1.0,
+      "critic": 1.0
+    }
+  },
+  "by_source_difficulty": {
+    "livecodebench/hard": {
+      "n": 9,
+      "control": [
+        0.0,
+        0.0,
+        0.333,
+        0.333
+      ],
+      "bare_retry": [
+        0.0,
+        0.111,
+        0.333,
+        0.333
+      ],
+      "reflect_fix": [
+        0.0,
+        0.111,
+        0.111,
+        0.111
+      ],
+      "critic": [
+        0.0,
+        0.222,
+        0.222,
+        0.222
+      ]
+    },
+    "livecodebench/medium": {
+      "n": 3,
+      "control": [
+        0.0,
+        0.667,
+        0.667,
+        0.667
+      ],
+      "bare_retry": [
+        0.0,
+        0.333,
+        0.667,
+        0.667
+      ],
+      "reflect_fix": [
+        0.0,
+        0.333,
+        0.333,
+        0.333
+      ],
+      "critic": [
+        0.0,
+        0.667,
+        0.667,
+        0.667
+      ]
+    },
+    "mbpp/hard": {
+      "n": 4,
+      "control": [
+        0.0,
+        0.25,
+        0.25,
+        0.25
+      ],
+      "bare_retry": [
+        0.0,
+        0.25,
+        0.5,
+        0.5
+      ],
+      "reflect_fix": [
+        0.0,
+        0.5,
+        0.75,
+        0.75
+      ],
+      "critic": [
+        0.0,
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "mbpp/medium": {
+      "n": 2,
+      "control": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "bare_retry": [
+        0.0,
+        0.0,
+        0.5,
+        0.5
+      ],
+      "reflect_fix": [
+        0.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "critic": [
+        0.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  },
+  "by_attempt0_failure_type": {
+    "runtime_error": {
+      "n": 1,
+      "control": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "bare_retry": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "reflect_fix": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "critic": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "wrong_answer": {
+      "n": 17,
+      "control": [
+        0.0,
+        0.176,
+        0.353,
+        0.353
+      ],
+      "bare_retry": [
+        0.0,
+        0.176,
+        0.471,
+        0.471
+      ],
+      "reflect_fix": [
+        0.0,
+        0.353,
+        0.412,
+        0.412
+      ],
+      "critic": [
+        0.0,
+        0.471,
+        0.471,
+        0.471
+      ]
+    }
+  },
+  "notes": "attempt_0.cells: A true pass, B false pass (public pass, hidden fail), C hidden-only pass (public fail, hidden pass), D true fail. all_tasks: hidden pass@1 over every task, A and B keeping their attempt-0 result. hidden_pass@1 and public_pass@1 count failed attempt-0 API calls as 0; *_excl_failed leaves those tasks out. Failed retries count 0 in both. paired_tests: p_holm is Holm-adjusted within each family. arms: only the tasks that went into the arms (C + D); repair_rate is over D, breaks over C. regression = hidden test pass rate went down from the arm's previous attempt. Costs are from the API's token counts (tokens_estimated = calls whose counts were estimated)."
+}
